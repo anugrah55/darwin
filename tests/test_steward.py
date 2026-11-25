@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -756,3 +757,30 @@ def test_the_launch_card_projects_the_experiment_cost_and_approval_refuses_past_
     with pytest.raises(StewardError, match="needs about \\$0.10"):
         steward.approve("a", card_id=card["id"])
     assert len(fs.log) == writes and steward.store.read()["experiment"] is None
+
+
+def test_a_human_written_card_can_be_sent_back_with_a_note(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose_manual(system_prompt="You are ShopBot. Be brief.", goal="cost", summary="Trim", hypothesis="Shorter costs less",
+                                  actor="pm", effort="low")
+    assert Path(card["request_path"]).is_file()
+    revised = steward.reject("anugrah", note="make it a bit longer")
+    assert revised["review_note"] == "make it a bit longer" and revised["based_on"] == "pm"
+    assert steward.coach.calls[-1][0] == "revise" and steward.store.read()["pending"]["id"] == revised["id"]
+
+
+def test_a_revision_never_reuses_a_variant_key_flagsmith_already_has(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    f = fs.features["shopbot_brain"]
+    f["type"] = "multivariate"
+    f["variants"].append({"id": 99, "key": "gen2", "value": "someone else's gen2", "weight": 0.0})
+    revised = steward.reject("anugrah", note="Keep it short")
+    s = steward.store.read()
+    assert revised["challenger"] == "gen3" and s["generations"]["gen2"]["status"] == "rejected"
+    steward.approve("anugrah", card_id=revised["id"])
+    assert steward.store.read()["experiment"]["challenger"] == "gen3"

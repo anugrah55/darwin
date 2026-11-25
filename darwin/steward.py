@@ -325,6 +325,7 @@ class Steward:
                 raise StewardError("finish the running experiment or pending card first")
             champion = self._champion(s)
             name = self._next_name(s, taken)
+            history = self._history_lines(s)
         proposal = Proposal(patterns=[], hypothesis=hypothesis, expected_effect=f"Proposed by {actor}; not predicted by the Coach.",
                             changes_summary=[f"Prompt written by {actor}"], risks="Not reviewed by the Coach.", summary=summary,
                             system_prompt=system_prompt, effort=effort or champion.effort, model=model or champion.model)
@@ -332,8 +333,11 @@ class Steward:
         if problems:
             raise StewardError("proposal failed Darwin's checks: " + "; ".join(problems))
         genome = proposal_to_genome(proposal, champion, name)
-        stats = transcripts.stats(transcripts.load(self.transcripts_path, generation=champion.name))
-        card = self._launch_card(champion, genome, proposal, goal, stats, 0, 0.0, self.proposals_dir / f"{name}-manual.md")
+        rows = transcripts.load(self.transcripts_path, generation=champion.name)
+        stats = transcripts.stats(rows)
+        # The same request the Coach would get, so "Reject with a note" can ask the Coach to revise this prompt.
+        request_path = self._write_request(goal, champion, name, rows, history)
+        card = self._launch_card(champion, genome, proposal, goal, stats, 0, 0.0, request_path)
         card["author"] = actor
         with self.store.transaction() as s:
             s["generations"][name] = {"genome": genome.model_dump(), "status": "proposed", "born_at": _now(),
@@ -342,6 +346,19 @@ class Steward:
             log_event(s, "proposed", f"{actor} proposed {name}: {genome.summary}", actor, generation=name, chats_read=0,
                       coach_cost_usd=0, expected_effect=None)
         return card
+
+    def _write_request(self, goal: str, champion: Genome, name: str, rows: list[dict], history: list[str]) -> Path:
+        from shopbot.tools import TOOLS
+
+        from .coach import build_request
+
+        failed, ok = transcripts.sample_for_coach(rows, failed=24, succeeded=4 if goal == "quality" else 10, seed=len(rows))
+        request = build_request(goal=goal, champion=champion, challenger_name=name, tools=TOOLS, stats=transcripts.stats(rows),
+                                history=history, failed=failed, succeeded=ok, allow_model_change=self.settings.allow_model_change)
+        self.proposals_dir.mkdir(parents=True, exist_ok=True)
+        path = self.proposals_dir / f"{name}-request.md"
+        path.write_text(request)
+        return path
 
     def _history_lines(self, state: dict) -> list[str]:
         lines = []
@@ -959,27 +976,39 @@ class Steward:
         return None
 
     def _revise(self, card: dict, note: str, actor: str) -> dict:
+        request_path = Path(card.get("request_path") or "")
+        if not request_path.is_file():
+            raise StewardError("this card has no Coach request to revise from; reject it and propose again")
+        taken = self._variant_keys()  # checked before any money is spent
         ctx: dict = {}
 
         def prepare(s: dict) -> str:
             if not s["pending"] or s["pending"]["id"] != card["id"]:
                 raise StewardError("that card has been replaced; review the new one")
             ctx["champion"] = self._champion(s)
+            # If Flagsmith already has a variant with this card's name (from someone else), the revision gets a new one.
+            ctx["name"] = card["challenger"] if card["challenger"] not in taken else self._next_name(s, taken)
             return f"The Coach is revising {card['challenger']}"
 
         with self._claim(prepare):
-            champion = ctx["champion"]
-            request = Path(card["request_path"]).read_text()
+            champion, name = ctx["champion"], ctx["name"]
+            request = request_path.read_text()
             previous = Proposal.model_validate(card["proposal"])
             spent_before = self.claude.ledger.snapshot()["spent_usd"]
             proposal = self.coach.revise(request=request, previous=previous, note=note, champion=champion, goal=card["goal"])
             cost = self.claude.ledger.snapshot()["spent_usd"] - spent_before + card.get("coach_cost_usd", 0)
-            genome = proposal_to_genome(proposal, champion, card["challenger"])
-            new = self._launch_card(champion, genome, proposal, card["goal"], card["stats"], card["chats_read"], cost,
-                                    Path(card["request_path"]))
+            genome = proposal_to_genome(proposal, champion, name)
+            new = self._launch_card(champion, genome, proposal, card["goal"], card["stats"], card["chats_read"], cost, request_path)
             new["revision_of"], new["review_note"] = card["id"], note
+            if card.get("author", "coach") != "coach":
+                new["based_on"] = card["author"]  # the Coach revised a human's prompt
             with self.store.transaction() as st:
-                st["generations"][genome.name].update(genome=genome.model_dump(), summary=genome.summary)
+                if name == card["challenger"]:
+                    st["generations"][name].update(genome=genome.model_dump(), summary=genome.summary, author=None)
+                else:
+                    st["generations"][card["challenger"]]["status"] = "rejected"
+                    st["generations"][name] = {"genome": genome.model_dump(), "status": "proposed", "born_at": _now(),
+                                               "parent": champion.name, "goal": card["goal"], "summary": genome.summary}
                 st["pending"] = new
                 log_event(st, "revised", f"{actor} asked for changes (“{note}”); the Coach revised {genome.name}", actor,
                           generation=genome.name)
