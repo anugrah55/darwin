@@ -7,6 +7,7 @@ import pytest
 from darwin.coach import Pattern, Proposal
 from darwin.config import Settings
 from darwin.genome import Genome
+from darwin.flagsmith_admin import FlagsmithError
 from darwin.llm import SpendLedger
 from darwin.steward import Steward, StewardError
 from tests.fake_flagsmith import FakeFlagsmith, payload
@@ -239,3 +240,94 @@ def test_a_human_written_challenger_gets_the_same_gate(env):
     assert len(fs.log) == 4  # nothing ran yet: only init's writes
     steward.approve("anugrah")
     assert steward.store.read()["experiment"]["goal"] == "cost"
+
+
+def ship_gen2(steward, fs, tmp):
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    fs.payloads[exp_id] = payload(steward.store.read()["metrics"], "gen2")
+    assert steward.check()["decision"]["verdict"] == "SHIP"
+    steward.approve("a")
+    return exp_id
+
+
+def test_init_registers_the_genome_flagsmith_serves_not_the_value_the_flag_was_created_with(env):
+    steward, fs, tmp = env
+    ship_gen2(steward, fs, tmp)
+    (tmp / "lab.json").unlink()  # state lost, or a fresh clone pointed at the same Flagsmith
+    steward.init(GEN1)
+    assert steward.store.read()["champion"] == "gen2"
+
+
+def test_a_new_generation_never_reuses_a_variant_key_flagsmith_already_has(env):
+    steward, fs, tmp = env
+    ship_gen2(steward, fs, tmp)
+    gen2_value = next(v["value"] for v in fs.features["shopbot_brain"]["variants"] if v["key"] == "gen2")
+    (tmp / "lab.json").unlink()
+    steward.init(GEN1)
+    chats(tmp, "gen2")
+    card = steward.propose()
+    assert card["challenger"] == "gen3"
+    steward.approve("a", card_id=card["id"])
+    assert next(v["value"] for v in fs.features["shopbot_brain"]["variants"] if v["key"] == "gen2") == gen2_value
+
+
+def test_launch_refuses_when_the_variant_key_holds_a_different_genome(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    f = fs.features["shopbot_brain"]
+    f["type"] = "multivariate"
+    f["variants"].append({"id": 99, "key": "gen2", "value": "an older gen2 written somewhere else", "weight": 0.0})
+    with pytest.raises(StewardError, match="different genome"):
+        steward.approve("a", card_id=card["id"])
+    assert not fs.exps and steward.store.read()["experiment"] is None
+
+
+def test_approval_compares_command_bodies_not_just_summaries(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    f = fs.features["shopbot_brain"]
+    f["type"] = "multivariate"
+    f["variants"].append({"id": 99, "key": "hotfix", "value": "{}", "weight": 0.0})  # added in the dashboard
+    with pytest.raises(StewardError, match="changed"):
+        steward.approve("a", card_id=card["id"])
+    updated = steward.store.read()["pending"]
+    assert updated["id"] != card["id"] and '"multivariate_feature_option": 99' in next(c["body"] for c in updated["commands"] if c["body"])
+    exp_id = steward.approve("a", card_id=updated["id"])["experiment_id"]
+    options = [v["multivariate_feature_option"] for v in fs.exps[exp_id]["body"]["experiment_rollout"]["multivariate_feature_state_values"]]
+    assert 99 in options
+
+
+def test_retrying_a_half_done_launch_runs_only_what_is_left(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    fs.fail_next = lambda c: c.args[:1] == ["api"] and c.args[1].endswith("/start/")
+    with pytest.raises(FlagsmithError):
+        steward.approve("a", card_id=card["id"])  # variant added, experiment created, start failed
+    assert [e["status"] for e in fs.exps.values()] == ["created"]
+    with pytest.raises(StewardError):
+        steward.approve("a", card_id=card["id"])  # the variant exists now, so the card changes
+    updated = steward.store.read()["pending"]
+    assert not any("variant add" in c["command"] for c in updated["commands"])
+    exp_id = steward.approve("a", card_id=updated["id"])["experiment_id"]
+    assert len(fs.exps) == 1 and fs.exps[exp_id]["status"] == "running"
+    assert steward.store.read()["experiment"]["id"] == exp_id
+
+
+def test_a_conflicting_experiment_someone_else_created_is_a_clear_error(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    fid = fs.features["shopbot_brain"]["id"]
+    fs.exps[500] = {"id": 500, "name": "pricing test", "status": "running", "feature": {"id": fid, "name": "shopbot_brain"}}
+    with pytest.raises(StewardError, match="pricing test"):
+        steward.approve("a", card_id=card["id"])

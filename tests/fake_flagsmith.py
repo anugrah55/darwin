@@ -36,9 +36,13 @@ def parse(text: str) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
+def _no_cli(*args, **kwargs):
+    raise AssertionError("a test tried to run the real Flagsmith CLI")
+
+
 class FakeFlagsmith(FlagsmithAdmin):
     def __init__(self, settings):
-        super().__init__(settings)
+        super().__init__(settings, runner=_no_cli)
         self.features: dict[str, dict] = {}
         self.metric_list: list[dict] = []
         self.exps: dict[int, dict] = {}

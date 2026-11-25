@@ -10,12 +10,13 @@ from __future__ import annotations
 import time
 import uuid
 from pathlib import Path
+from typing import Callable
 
 from . import transcripts
 from .coach import GOALS, Coach, Proposal, dumps, proposal_to_genome
 from .config import Settings
 from .flagsmith_admin import Command, FlagsmithAdmin, FlagsmithError, Throttled
-from .genome import Genome
+from .genome import Genome, GenomeError
 from .llm import Claude, make_claude
 from .notebook import Notebook
 from .results import CONTROL, parse_readout
@@ -88,9 +89,21 @@ class Steward:
             raise StewardError("Darwin isn't initialised yet — run `darwin init`.")
         return self._genome(state, state["champion"])
 
-    def _next_name(self, state: dict) -> str:
-        numbers = [int(n[3:]) for n in state["generations"] if n.startswith("gen") and n[3:].isdigit()]
+    def _next_name(self, state: dict, taken: list[str] = ()) -> str:
+        """The next free generation name. `taken` are the variant keys Flagsmith already has: a key that exists
+        there may hold another genome, so it is never reused."""
+        names = [*state["generations"], *taken]
+        numbers = [int(n[3:]) for n in names if n.startswith("gen") and n[3:].isdigit()]
         return f"gen{max(numbers, default=0) + 1}"
+
+    def _variant_keys(self) -> list[str]:
+        return [v["key"] for v in self._feature().get("variants") or []]
+
+    @staticmethod
+    def _served_value(feature: dict) -> str:
+        """What everyone outside an experiment gets: a variant rolled out to 100%, else the default value."""
+        full = [v for v in feature.get("variants") or [] if float(v.get("weight") or 0) >= 100]
+        return full[0]["value"] if full else feature["default_value"]
 
     def _feature(self) -> dict:
         """The feature's id plus this environment's live value and variant weights.
@@ -108,14 +121,21 @@ class Steward:
             merged["variants"] = flag["variants"]
         return merged
 
-    def _same_plan(self, card: dict, plan: list[Command]) -> None:
-        """Approval runs exactly the commands the human saw. If Flagsmith changed since the card was made, stop."""
-        if [c["summary"] for c in card["commands"]] == [c.summary for c in plan]:
-            return
+    def _same_plan(self, card: dict, build: Callable[[str], list[Command]]) -> list[Command]:
+        """Approval runs exactly the commands the human saw: every summary, command line and JSON body.
+
+        `build(card_id)` makes the plan from Flagsmith's current state. If it differs from the card, the card is
+        replaced (new id, new commands) and the approval stops, so the human reviews what would really run.
+        """
+        plan = build(card["id"])
+        if card["commands"] == [c.to_dict() for c in plan]:
+            return plan
+        new_id = uuid.uuid4().hex[:8]
+        fresh = [c.to_dict() for c in build(new_id)]
         with self.store.transaction() as st:
             if st["pending"] and st["pending"]["id"] == card["id"]:
-                st["pending"]["commands"] = [c.to_dict() for c in plan]
-                st["pending"]["id"] = uuid.uuid4().hex[:8]
+                st["pending"]["commands"] = fresh
+                st["pending"]["id"] = new_id
                 log_event(st, "card-updated", "Flagsmith changed since the card was made; its commands were updated for review")
         raise StewardError("Flagsmith changed since this card was made, so the commands changed. "
                            "Review the updated card and approve again.")
@@ -130,13 +150,12 @@ class Steward:
         if missing:
             raise StewardError("missing settings: " + ", ".join(missing))
         notes = []
-        feature = self.admin.feature(self.flag)
-        if feature is None:
+        if self.admin.feature(self.flag) is None:
             self.admin.run(self.admin.cmd_create_feature(self.flag, gen1.to_flag_value(), f"{gen1.name} genome"))
-            feature = self._feature()
             notes.append(f"created flag {self.flag} with {gen1.name} as its value")
         else:
             notes.append(f"flag {self.flag} already exists")
+        feature = self._feature()  # the environment's live value, not the value the flag was created with
         existing = {m["name"]: m["id"] for m in self.admin.metrics()}
         for name, spec in METRICS.items():
             if name not in existing:
@@ -144,10 +163,16 @@ class Steward:
                                                                      spec["direction"], spec["description"]))
                 existing[name] = created["id"]
                 notes.append(f"created metric {name}")
-        current = Genome.from_flag_value(feature["default_value"])
+        try:
+            current = Genome.from_flag_value(self._served_value(feature))
+        except GenomeError as exc:
+            raise StewardError(f"{self.flag} serves a value Darwin can't read as a genome ({exc}). Fix the flag in Flagsmith first.") from exc
         with self.store.transaction() as s:
             s["feature_id"] = feature["id"]
             s["metrics"] = {n: existing[n] for n in METRICS}
+            if s["champion"] and s["champion"] != current.name:
+                notes.append(f"Flagsmith serves {current.name} but Darwin's champion is {s['champion']}; "
+                             f"`darwin rollback {s['champion']}` makes them match")
             if s["champion"] is None:
                 s["generations"][current.name] = {"genome": current.model_dump(), "status": "champion", "born_at": _now(),
                                                   "became_champion_at": _now(), "parent": current.parent, "summary": current.summary}
@@ -161,6 +186,7 @@ class Steward:
     def propose(self, goal: str = "quality", actor: str = "darwin") -> dict:
         if goal not in GOALS:
             raise StewardError(f"unknown goal {goal!r}; use one of {', '.join(GOALS)}")
+        taken = self._variant_keys()
         with self.store.transaction() as s:
             if s["experiment"]:
                 raise StewardError("an experiment is running — decide it before proposing the next generation")
@@ -169,7 +195,7 @@ class Steward:
             if s["busy"]:
                 raise StewardError(f"busy: {s['busy']['what']}")
             champion = self._champion(s)
-            name = self._next_name(s)
+            name = self._next_name(s, taken)
             history = self._history_lines(s)
             s["busy"] = {"what": f"The Coach is reading {champion.name}'s conversations", "since": _now()}
         try:
@@ -220,11 +246,12 @@ class Steward:
 
         if goal not in GOALS:
             raise StewardError(f"unknown goal {goal!r}; use one of {', '.join(GOALS)}")
+        taken = self._variant_keys()
         with self.store.transaction() as s:
             if s["experiment"] or s["pending"] or s["busy"]:
                 raise StewardError("finish the running experiment or pending card first")
             champion = self._champion(s)
-            name = self._next_name(s)
+            name = self._next_name(s, taken)
         proposal = Proposal(patterns=[], hypothesis=hypothesis, expected_effect=f"Proposed by {actor}; not predicted by the Coach.",
                             changes_summary=[f"Prompt written by {actor}"], risks="Not reviewed by the Coach.", summary=summary,
                             system_prompt=system_prompt, effort=effort or champion.effort, model=model or champion.model)
@@ -255,36 +282,59 @@ class Steward:
 
     def _launch_card(self, champion: Genome, genome: Genome, proposal: Proposal, goal: str, stats: dict,
                      chats_read: int, coach_cost: float, request_path: Path) -> dict:
+        card_id = uuid.uuid4().hex[:8]
         return {
-            "kind": "launch", "id": uuid.uuid4().hex[:8], "created_at": _now(), "goal": goal, "goal_text": GOALS[goal], "author": "coach",
+            "kind": "launch", "id": card_id, "created_at": _now(), "goal": goal, "goal_text": GOALS[goal], "author": "coach",
             "champion": champion.name, "challenger": genome.name, "genome": genome.model_dump(),
             "diff": champion.diff(genome), "proposal": dumps(proposal), "stats": stats, "chats_read": chats_read,
             "coach_cost_usd": round(coach_cost, 4), "request_path": str(request_path),
-            "commands": [c.to_dict() for c in self._launch_plan(champion, genome, goal, proposal.hypothesis)],
+            "commands": [c.to_dict() for c in self._launch_plan(champion, genome, goal, proposal.hypothesis, card_id=card_id)],
             "metrics": [f"{m} ({d.replace('_', ' ')})" for m, d in EXPERIMENT_METRICS[goal]],
         }
 
     # ------------------------------------------------------------------ launch
-    def _launch_plan(self, champion: Genome, challenger: Genome, goal: str, hypothesis: str, *,
+    def _launch_plan(self, champion: Genome, challenger: Genome, goal: str, hypothesis: str, *, card_id: str = "",
                      feature: dict | None = None, option_id: int | None = None, experiment_id: int | None = None,
                      metric_ids: dict | None = None) -> list[Command]:
         feature = feature or self._feature()
         variants = [v for v in feature.get("variants") or [] if v["key"] != challenger.name]
+        existing = next((v for v in feature.get("variants") or [] if v["key"] == challenger.name), None)
+        if existing is not None and existing.get("value") != challenger.to_flag_value():
+            raise StewardError(f"Flagsmith already has a variant called {challenger.name} with a different genome. Darwin won't "
+                               f"test one genome and ship another: reject this card and propose again (the new proposal "
+                               f"gets a free name).")
         champ_value = champion.to_flag_value()
         plan = []
         if feature.get("default_value") != champ_value or any(v.get("weight") for v in variants):
             plan.append(self.admin.cmd_set_default(self.flag, champ_value, champion.name, [v["key"] for v in variants]))
-        plan.append(self.admin.cmd_add_variant(self.flag, challenger.name, challenger.to_flag_value()))
+        if existing is None:
+            plan.append(self.admin.cmd_add_variant(self.flag, challenger.name, challenger.to_flag_value()))
+        elif option_id is None:
+            option_id = existing["id"]  # added by an earlier, half-finished launch of this same genome
         new_id = option_id if option_id is not None else f"<{challenger.name} variant id>"
         weights = {v["id"]: 0 for v in variants} | {new_id: SPLIT}
         labels = {v["id"]: v["key"] for v in variants} | {new_id: challenger.name}
         metric_ids = metric_ids or self.store.read()["metrics"]
         metrics = [{"metric": metric_ids.get(m, f"<{m} metric id>"), "expected_direction": d} for m, d in EXPERIMENT_METRICS[goal]]
         plan.append(self.admin.cmd_create_experiment(
-            feature_id=feature["id"], name=f"{self.flag}: {champion.name} vs {challenger.name}", hypothesis=hypothesis,
+            feature_id=feature["id"], name=self._experiment_name(champion.name, challenger.name), hypothesis=hypothesis,
             metrics=metrics, control_value=champ_value, control_label=champion.name, weights=weights, weight_labels=labels))
         plan.append(self.admin.cmd_start(experiment_id if experiment_id is not None else "<new experiment id>"))
         return plan
+
+    def _experiment_name(self, champion: str, challenger: str) -> str:
+        return f"{self.flag}: {champion} vs {challenger}"
+
+    def _active_experiment(self, name: str) -> dict:
+        """After a 409: the active experiment Flagsmith has for this flag must be ours, matched by its exact name."""
+        active = [e for e in self.admin.experiments() if e.get("status") != "completed"
+                  and (e.get("feature") or {}).get("name", self.flag) == self.flag]
+        mine = [e for e in active if e.get("name") == name]
+        if mine:
+            return mine[0]  # an earlier, half-finished launch of this same card
+        other = ", ".join(f"#{e['id']} '{e.get('name')}' ({e.get('status')})" for e in active) or "one Darwin can't see"
+        raise StewardError(f"Flagsmith already has an active experiment on {self.flag}: {other}. "
+                           f"Complete or delete it in Flagsmith, then approve again.")
 
     def _launch(self, card: dict, actor: str) -> dict:
         s = self.store.read()
@@ -292,24 +342,25 @@ class Steward:
         challenger = Genome.model_validate(card["genome"])
         hypothesis = card["proposal"]["hypothesis"]
         feature = self._feature()
-        if not any(v["key"] == challenger.name for v in feature.get("variants") or []):
-            plan = self._launch_plan(champion, challenger, card["goal"], hypothesis, feature=feature)
-            self._same_plan(card, plan)
-            for cmd in plan[:-2]:  # set default (if needed) + add variant
-                self.admin.run(cmd)
+        plan = self._same_plan(card, lambda cid: self._launch_plan(champion, challenger, card["goal"], hypothesis, card_id=cid,
+                                                                   feature=feature, metric_ids=s["metrics"]))
+        for cmd in plan[:-2]:  # set the champion as default (if needed), add the challenger variant (if needed)
+            self.admin.run(cmd)
+        if plan[:-2]:
             feature = self._feature()
-        option_id = next(v["id"] for v in feature["variants"] if v["key"] == challenger.name)
-        plan = self._launch_plan(champion, challenger, card["goal"], hypothesis, feature=feature, option_id=option_id,
-                                 metric_ids=s["metrics"])
+        option_id = next((v["id"] for v in feature.get("variants") or [] if v["key"] == challenger.name), None)
+        if option_id is None:
+            raise StewardError(f"Flagsmith doesn't show the {challenger.name} variant after adding it; approve again to retry.")
+        plan = self._launch_plan(champion, challenger, card["goal"], hypothesis, card_id=card["id"], feature=feature,
+                                 option_id=option_id, metric_ids=s["metrics"])
         try:
             experiment = self.admin.run(plan[-2])
         except FlagsmithError as exc:
             if exc.status != 409:
                 raise
-            experiment = next(e for e in self.admin.experiments()
-                              if e["status"] != "completed" and challenger.name in e["name"])  # retrying a half-done launch
+            experiment = self._active_experiment(self._experiment_name(champion.name, challenger.name))
         experiment_id = experiment["id"]
-        if experiment.get("status") in (None, "created"):
+        if experiment.get("status") in (None, "created", "paused"):
             self.admin.run(self.admin.cmd_start(experiment_id))
         with self.store.transaction() as st:
             gen = st["generations"][challenger.name]
@@ -392,8 +443,7 @@ class Steward:
         if not exp or exp["id"] != card["experiment_id"]:
             raise StewardError("that experiment is no longer running")
         challenger = self._genome(s, exp["challenger"])
-        plan = self._decision_plan(exp, card["verdict"], challenger)
-        self._same_plan(card, plan)
+        plan = self._same_plan(card, lambda cid: self._decision_plan(exp, card["verdict"], challenger))
         for cmd in plan:
             self.admin.run(cmd)
         try:
