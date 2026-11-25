@@ -3,13 +3,14 @@
     uv run darwin shopbot        # http://127.0.0.1:8100 — chat page for humans, JSON API for the simulator
 
 Per conversation: one `get_experiment_flag` call picks the genome (and records the exposure); at the end,
-`resolved`, `escalated` and `tokens_used` events go to Flagsmith, and the transcript goes to
+`resolved`, `escalated` and `cost_microusd` events go to Flagsmith, and the transcript goes to
 data/transcripts.jsonl for the Coach.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import uuid
@@ -30,7 +31,8 @@ from .agent import run_turn
 from .store import Store, demo_orders
 
 HERE = Path(__file__).parent
-GEN1 = Genome.model_validate_json((HERE / "genomes" / "gen1.json").read_text())
+# The genome served when Flagsmith can't be reached (or the flag doesn't exist yet).
+GEN1 = Genome.model_validate_json(Path(os.environ.get("SHOPBOT_FALLBACK_GENOME", HERE / "genomes" / "gen1.json")).read_text())
 
 
 @dataclass
@@ -142,8 +144,9 @@ class ShopBot:
         if session.escalated:
             a.track("escalated")
             events.append("escalated")
-        a.track("tokens_used", session.tokens)
-        events.append(f"tokens_used={session.tokens}")
+        cost_microusd = round(session.cost_usd * 1_000_000)
+        a.track("cost_microusd", cost_microusd)
+        events.append(f"cost_microusd={cost_microusd}")
         record = {
             "session_id": session.id, "user_id": session.user_id, "channel": session.channel,
             **{k: v for k, v in a.to_dict().items() if k != "identifier"},
