@@ -55,6 +55,7 @@ class Settings:
     shopbot_url: str
     lab_host: str
     lab_port: int
+    notebook_path: Path
 
     @classmethod
     def load(cls) -> Settings:
@@ -88,6 +89,7 @@ class Settings:
             shopbot_url=env("SHOPBOT_URL", "http://127.0.0.1:8100").rstrip("/"),
             lab_host=env("DARWIN_LAB_HOST", "127.0.0.1"),
             lab_port=int(env("DARWIN_LAB_PORT", "8200")),
+            notebook_path=Path(env("DARWIN_NOTEBOOK", str(ROOT / "LAB_NOTEBOOK.md"))),
         )
 
     def cli_env(self) -> dict[str, str]:
