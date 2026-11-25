@@ -63,6 +63,11 @@ def render(row: dict, index: int) -> str:
             output = call["output"]
             if call["name"] == "get_policy" and isinstance(output, dict) and "policy" in output:
                 shown = f"policy[{output.get('topic')}]: {output['policy']}"
+            elif call["name"] == "lookup_order" and isinstance(output, dict) and "order_id" in output:
+                items = "; ".join(f"{i['name']} ${i['price']:g} {i['category']}{' FINAL SALE' if i.get('final_sale') else ''}"
+                                  for i in output.get("items", []))
+                keys = ("status", "order_total", "delivered_days_ago", "days_late", "tracking_number")
+                shown = f"[{items}] " + ", ".join(f"{k}={output[k]}" for k in keys if output.get(k) is not None)
             else:
                 shown = _short(output)
             lines.append(f"  [tool] {call['name']}({args}) -> {'ERROR ' if call.get('is_error') else ''}{shown}")
