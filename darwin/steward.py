@@ -48,6 +48,9 @@ POLICIES = {
         Guardrail("escalated", margin=0.05, worse="up", scale="points", label="escalations", plural=True))),
 }
 SPLIT = 50  # % of traffic the challenger gets
+STOP = "STOP"  # an emergency stop: complete the experiment and keep the champion
+APPROVER = "<approver>"  # stands for the approving human on a card; their name replaces it when the commands run
+VERBS = {SHIP: "Shipped", DISCARD: "Discarded", KILL: "Killed", STOP: "Stopped"}
 
 
 class StewardError(RuntimeError):
@@ -368,8 +371,8 @@ class Steward:
 
     # ------------------------------------------------------------------ launch
     def _launch_plan(self, champion: Genome, challenger: Genome, goal: str, hypothesis: str, *, card_id: str = "",
-                     feature: dict | None = None, option_id: int | None = None, experiment_id: int | None = None,
-                     metric_ids: dict | None = None) -> list[Command]:
+                     approver: str = APPROVER, feature: dict | None = None, option_id: int | None = None,
+                     experiment_id: int | None = None, metric_ids: dict | None = None) -> list[Command]:
         feature = feature or self._feature()
         variants = [v for v in feature.get("variants") or [] if v["key"] != challenger.name]
         existing = next((v for v in feature.get("variants") or [] if v["key"] == challenger.name), None)
@@ -390,6 +393,8 @@ class Steward:
         labels = {v["id"]: v["key"] for v in variants} | {new_id: challenger.name}
         metric_ids = metric_ids or self.store.read()["metrics"]
         metrics = [{"metric": metric_ids.get(m, f"<{m} metric id>"), "expected_direction": d} for m, d in EXPERIMENT_METRICS[goal]]
+        if card_id:
+            hypothesis = f"{hypothesis}\n\nApproved in Darwin by {approver} (card {card_id})."
         plan.append(self.admin.cmd_create_experiment(
             feature_id=feature["id"], name=self._experiment_name(champion.name, challenger.name), hypothesis=hypothesis,
             metrics=metrics, control_value=champ_value, control_label=champion.name, weights=weights, weight_labels=labels))
@@ -425,8 +430,8 @@ class Steward:
         option_id = next((v["id"] for v in feature.get("variants") or [] if v["key"] == challenger.name), None)
         if option_id is None:
             raise StewardError(f"Flagsmith doesn't show the {challenger.name} variant after adding it; approve again to retry.")
-        plan = self._launch_plan(champion, challenger, card["goal"], hypothesis, card_id=card["id"], feature=feature,
-                                 option_id=option_id, metric_ids=s["metrics"])
+        plan = self._launch_plan(champion, challenger, card["goal"], hypothesis, card_id=card["id"], approver=actor,
+                                 feature=feature, option_id=option_id, metric_ids=s["metrics"])
         try:
             experiment = self.admin.run(plan[-2])
         except FlagsmithError as exc:
@@ -488,7 +493,7 @@ class Steward:
             pending = st["pending"]
             if decision.needs_approval and e.get("dismissed") != decision.verdict:
                 if not pending or pending.get("kind") != "decision" or pending.get("verdict") != decision.verdict:
-                    st["pending"] = self._decision_card(st, e, decision)
+                    st["pending"] = self._decision_card(st, e, decision, detail)
                     log_event(st, "recommended", f"Rules recommend {decision.verdict} for {e['challenger']}: {decision.headline}",
                               "darwin", generation=e["challenger"], experiment_id=e["id"])
                 else:
@@ -498,20 +503,44 @@ class Steward:
                 log_event(st, "withdrawn", f"Recommendation withdrawn: {decision.headline}", "darwin", experiment_id=e["id"])
         return {"running": True, "readout": readout.to_dict(), "decision": decision.to_dict(), "note": note}
 
-    def _decision_card(self, state: dict, exp: dict, decision) -> dict:
+    def _decision_card(self, state: dict, exp: dict, decision, detail: dict) -> dict:
         challenger = self._genome(state, exp["challenger"])
-        return {"kind": "decision", "id": uuid.uuid4().hex[:8], "created_at": _now(), "verdict": decision.verdict,
+        card_id = uuid.uuid4().hex[:8]
+        return {"kind": "decision", "id": card_id, "created_at": _now(), "verdict": decision.verdict,
                 "headline": decision.headline, "reasons": decision.reasons, "experiment_id": exp["id"],
                 "champion": exp["champion"], "challenger": exp["challenger"], "goal": exp["goal"],
                 "readout": exp["readout"],
-                "commands": [c.to_dict() for c in self._decision_plan(exp, decision.verdict, challenger)]}
+                "commands": [c.to_dict() for c in self._decision_plan(exp, decision.verdict, challenger, card_id=card_id,
+                                                                      detail=detail)]}
 
-    def _decision_plan(self, exp: dict, verdict: str, challenger: Genome) -> list[Command]:
+    @staticmethod
+    def _record_line(verdict: str, approver: str, card_id: str | None = None, reason: str = "") -> str:
+        line = f"{VERBS[verdict]} in Darwin by {approver}" + (f" (card {card_id})" if card_id else "")
+        return line + (f": {reason}" if reason else "") + "."
+
+    def _decision_plan(self, exp: dict, verdict: str, challenger: Genome, *, card_id: str | None, approver: str = APPROVER,
+                       detail: dict | None = None, reason: str = "") -> list[Command]:
+        """The commands that settle the experiment, given what Flagsmith already shows: complete it (unless it is
+        completed), make a shipped challenger the flag's default value, and record the decision in the experiment's
+        hypothesis so Flagsmith shows who approved it."""
+        detail = detail if detail is not None else self.admin.experiment(exp["id"])
+        completed = detail.get("status") == "completed"
+        plan = []
+        if not completed:
+            plan.append(self.admin.cmd_complete(exp["id"], "variant", exp["option_id"], challenger.name) if verdict == SHIP
+                        else self.admin.cmd_complete(exp["id"], "control"))
         if verdict == SHIP:
-            keys = [v["key"] for v in self._feature().get("variants") or []]
-            return [self.admin.cmd_complete(exp["id"], "variant", exp["option_id"], challenger.name),
-                    self.admin.cmd_set_default(self.flag, challenger.to_flag_value(), challenger.name, keys)]
-        return [self.admin.cmd_complete(exp["id"], "control")]
+            feature = self._feature()
+            value = challenger.to_flag_value()
+            settled = feature.get("default_value") == value and not any(v.get("weight") for v in feature.get("variants") or [])
+            if not completed or not settled:
+                plan.append(self.admin.cmd_set_default(self.flag, value, challenger.name,
+                                                       [v["key"] for v in feature.get("variants") or []]))
+        hypothesis = detail.get("hypothesis") or ""
+        if f"{VERBS[verdict]} in Darwin by" not in hypothesis:
+            line = self._record_line(verdict, approver, card_id, reason)
+            plan.append(self.admin.cmd_update_hypothesis(exp["id"], f"{hypothesis}\n\n{line}".strip(), line))
+        return plan
 
     def _decide(self, card: dict, actor: str) -> dict:
         s = self.store.read()
@@ -519,8 +548,9 @@ class Steward:
         if not exp or exp["id"] != card["experiment_id"]:
             raise StewardError("that experiment is no longer running")
         challenger = self._genome(s, exp["challenger"])
-        plan = self._same_plan(card, lambda cid: self._decision_plan(exp, card["verdict"], challenger))
-        for cmd in plan:
+        detail = self.admin.experiment(exp["id"])
+        self._same_plan(card, lambda cid: self._decision_plan(exp, card["verdict"], challenger, card_id=cid, detail=detail))
+        for cmd in self._decision_plan(exp, card["verdict"], challenger, card_id=card["id"], approver=actor, detail=detail):
             self.admin.run(cmd)
         try:
             self.admin.run(self.admin.cmd_refresh_results(exp["id"]))  # freeze the final numbers

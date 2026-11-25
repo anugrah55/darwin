@@ -220,6 +220,11 @@ class FlagsmithAdmin:
         return self._api(f"experiments/{experiment_id}/complete/", summary=f"Complete the experiment and {what}",
                          method="POST", body=body)
 
+    def cmd_update_hypothesis(self, experiment_id: int | str, hypothesis: str, note: str) -> Command:
+        """PATCH the experiment's hypothesis, so Flagsmith itself records who approved what."""
+        return self._api(f"experiments/{experiment_id}/", summary=f"Record in Flagsmith: “{note}”", method="PATCH",
+                         body={"hypothesis": hypothesis})
+
     def cmd_refresh_results(self, experiment_id: int) -> Command:
         return self._api(f"experiments/{experiment_id}/results/refresh/", summary="Ask Flagsmith to recompute results", method="POST")
 

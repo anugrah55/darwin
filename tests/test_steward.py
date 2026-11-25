@@ -415,3 +415,22 @@ def test_the_planned_sample_is_on_the_launch_card_and_fixed_at_launch(env):
     d = steward.check()["decision"]
     assert d["verdict"] == "COLLECTING_DATA" and "80 of 100 chats per arm" in d["headline"]
     assert steward.store.read()["pending"] is None
+
+
+def test_flagsmith_records_who_approved_the_launch_and_the_decision(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    create = next(c for c in card["commands"] if c["body"] and '"hypothesis"' in c["body"])
+    assert f"Approved in Darwin by <approver> (card {card['id']})." in create["body"]  # the card shows a placeholder
+    exp_id = steward.approve("anugrah", card_id=card["id"])["experiment_id"]
+    assert fs.exps[exp_id]["hypothesis"].endswith(f"Approved in Darwin by anugrah (card {card['id']}).")
+    fs.payloads[exp_id] = payload(steward.store.read()["metrics"], "gen2")
+    steward.check()
+    decision = steward.store.read()["pending"]
+    record = decision["commands"][-1]
+    assert "PATCH" in record["command"] and "Shipped in Darwin by <approver>" in record["summary"]
+    steward.approve("maya", card_id=decision["id"])
+    assert fs.exps[exp_id]["hypothesis"].endswith(f"Shipped in Darwin by maya (card {decision['id']}).")
+    assert "Approved in Darwin by anugrah" in fs.exps[exp_id]["hypothesis"]
