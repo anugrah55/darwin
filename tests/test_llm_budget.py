@@ -57,3 +57,13 @@ def test_ledger_is_shared_between_instances(tmp_path):
     a.record(model="claude-haiku-5-5", usage=usage(), purpose="shopbot")
     b.record(model="claude-haiku-5-5", usage=usage(), purpose="coach")
     assert a.snapshot()["calls"] == 2
+
+
+def test_the_anthropic_client_is_only_created_on_the_first_call(tmp_path, monkeypatch):
+    import darwin.llm as llm
+    made = []
+    monkeypatch.setattr(llm.anthropic, "Anthropic", lambda **kw: made.append(kw) or FakeClient())
+    claude = llm.make_claude(tmp_path, 1.0)
+    assert made == []
+    claude.create(purpose="test", model="claude-haiku-5-5", max_tokens=10, messages=[{"role": "user", "content": "hi"}])
+    assert len(made) == 1

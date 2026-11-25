@@ -130,11 +130,21 @@ class SpendLedger:
 
 
 class Claude:
-    """`messages.create` / `beta.messages.parse` behind the spend cap."""
+    """`messages.create` / `beta.messages.parse` behind the spend cap.
+
+    The Anthropic client is created on the first call, so processes that never call Claude (the Lab, a check,
+    tests) never construct one.
+    """
 
     def __init__(self, ledger: SpendLedger, client: anthropic.Anthropic | None = None):
         self.ledger = ledger
-        self.client = client or anthropic.Anthropic(max_retries=4)
+        self._client = client
+
+    @property
+    def client(self) -> anthropic.Anthropic:
+        if self._client is None:
+            self._client = anthropic.Anthropic(max_retries=4)
+        return self._client
 
     def create(self, *, purpose: str, **request: Any):
         self.ledger.check(estimate_cost(request["model"], request=request), purpose)
