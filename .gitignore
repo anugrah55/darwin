@@ -1,0 +1,27 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# runtime data (transcripts, state, spend ledger) — samples live in data/samples/
+data/*
+!data/samples/
+!data/.gitkeep
+
+# local Flagsmith stack state
+docker/.flagsmith-local.json
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
