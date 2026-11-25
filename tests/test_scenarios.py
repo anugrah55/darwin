@@ -144,3 +144,9 @@ def test_customer_answers_why_and_gives_up_when_out_of_patience():
 def test_patience_is_randomised_but_respects_the_minimum():
     turns = {make_case(random.Random(i), TODAY, "wrong_order_id").max_turns for i in range(40)}
     assert min(turns) >= 3 and len({make_case(random.Random(i), TODAY).max_turns for i in range(40)}) > 1
+
+
+def test_customer_answers_requests_phrased_without_a_question_mark():
+    c = case("missing_order_id")
+    state = CustomerState()
+    assert c.email in next_message(c, "I can help with that! I'll need the email address on your account.", state)

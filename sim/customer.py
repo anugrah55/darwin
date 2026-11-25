@@ -16,6 +16,9 @@ ASKS_EMAIL = re.compile(r"e-?mail( address)?", re.I)
 ASKS_REASON = re.compile(r"\b(why|reason|what('s| is| went) wrong|what happened)\b", re.I)
 CLOSING = re.compile(r"anything else|something else|help with anything|have a (great|nice|good|lovely)", re.I)
 GIVE_UP = "Never mind, this is taking too long."
+# ShopBot is waiting on the customer when it asks a question *or* asks for something ("I'll need your email").
+WAITING = re.compile(r"\?|\b(i('ll| will)? need|i just need|please (provide|share|send|confirm|tell|reply|let me know)|"
+                     r"let me know|could you|can you|share (your|the)|send (me )?(your|the)|provide (your|the)|reply with)\b", re.I)
 
 
 @dataclass
@@ -30,7 +33,7 @@ class CustomerState:
 
 def next_message(case: Case, bot_reply: str, state: CustomerState) -> str | None:
     """What the customer says next, or None when they're done talking."""
-    asks = "?" in bot_reply
+    asks = bool(WAITING.search(bot_reply))
     if not asks:
         return None  # ShopBot made a statement (an answer or a refusal): the customer leaves
     if state.turn >= case.max_turns:
