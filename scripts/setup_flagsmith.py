@@ -129,6 +129,12 @@ def main() -> None:
         env_key = env["api_key"]
         print(f"  organisation {org['id']} · project {project['id']} · environment {ENV_NAME} ({env_key})")
 
+        if state.get("admin_api_key"):  # still valid after a reset?
+            probe = httpx.get(f"{api_url}/api/v1/organisations/", headers={"Authorization": f"Api-Key {state['admin_api_key']}"})
+            if probe.status_code in (401, 403):
+                state.pop("admin_api_key")
+        if state.get("server_key") and state.get("server_key_env") != env_key:
+            state.pop("server_key")
         if not state.get("admin_api_key"):
             r = fs.post(f"/api/v1/organisations/{org['id']}/master-api-keys/", json={"name": "darwin-cli", "is_admin": True})
             if r.status_code not in (200, 201):
@@ -146,12 +152,20 @@ def main() -> None:
             save_state(state)
             print("  minted server-side SDK key 'shopbot'")
 
-        r = fs.get(f"/api/v1/environments/{env_key}/warehouse-connections/?exclude_event_stats=true")
+        # "Flagsmith database" = a postgres warehouse whose config points at Flagsmith's own database.
+        # (warehouse_type "flagsmith" is the Cloud-managed warehouse and doesn't work self-hosted.)
+        flagsmith_db = {"source": "flagsmith_database"}
+        conns_path = f"/api/v1/environments/{env_key}/warehouse-connections/"
+        r = fs.get(f"{conns_path}?exclude_event_stats=true")
         r.raise_for_status()
-        if not r.json():
+        for existing in r.json():
+            if existing.get("config") != flagsmith_db and existing.get("warehouse_type") == "flagsmith":
+                fs.delete(f"{conns_path}{existing['id']}/").raise_for_status()
+                print("  removed a Cloud-managed warehouse connection that can't work self-hosted")
+        if not fs.get(f"{conns_path}?exclude_event_stats=true").json():
             r = fs.post(
-                f"/api/v1/environments/{env_key}/warehouse-connections/",
-                json={"warehouse_type": "flagsmith", "name": "Flagsmith database"},
+                conns_path,
+                json={"warehouse_type": "postgres", "name": "Flagsmith database", "config": flagsmith_db},
             )
             if r.status_code not in (200, 201):
                 fail(f"could not connect the Flagsmith database warehouse: {r.status_code} {r.text[:300]}")
