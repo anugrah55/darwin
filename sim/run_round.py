@@ -47,24 +47,33 @@ class ChatOutcome:
 def run_chat(http: httpx.Client, case: Case, user_id: str) -> ChatOutcome:
     s = http.post("/chat/start", json={"user_id": user_id, "channel": "sim"}).raise_for_status().json()
     sid, calls, replies, escalated = s["session_id"], [], [], False
-    message, state = case.opening, CustomerState()
-    while message is not None:
-        r = http.post(f"/chat/{sid}/message", json={"text": message})
-        if r.status_code == 402:
-            raise BudgetStop(r.json().get("detail", "budget exhausted"))
-        data = r.raise_for_status().json()
-        replies.append(data["reply"])
-        calls.extend(data["tools"])
-        if data["escalated"]:
-            escalated = True
-            break
-        message = next_message(case, data["reply"], state)
-    resolved, why = case.check(calls, replies)
-    if state.gave_up and not resolved:
-        why = f"customer gave up after {state.turn} messages; {why}"
-    # A customer who walks away says so, like a real one would; the rule's verdict stays in the sim log.
-    note = f"(customer left the chat) {GIVE_UP}" if state.gave_up and not resolved else None
-    http.post(f"/chat/{sid}/end", json={"resolved": resolved, "note": note}).raise_for_status()
+    try:
+        message, state = case.opening, CustomerState()
+        while message is not None:
+            r = http.post(f"/chat/{sid}/message", json={"text": message})
+            if r.status_code == 402:
+                raise BudgetStop(r.json().get("detail", "budget exhausted"))
+            data = r.raise_for_status().json()
+            replies.append(data["reply"])
+            calls.extend(data["tools"])
+            if data["escalated"]:
+                escalated = True
+                break
+            message = next_message(case, data["reply"], state)
+        resolved, why = case.check(calls, replies)
+        if state.gave_up and not resolved:
+            why = f"customer gave up after {state.turn} messages; {why}"
+        # A customer who walks away says so, like a real one would; the rule's verdict stays in the sim log.
+        note = f"(customer left the chat) {GIVE_UP}" if state.gave_up and not resolved else None
+        http.post(f"/chat/{sid}/end", json={"resolved": resolved, "note": note}).raise_for_status()
+    except BaseException as exc:
+        # Starting the chat recorded an exposure in Flagsmith, so it always gets an outcome (and its cost).
+        what = "the Claude budget ran out" if isinstance(exc, BudgetStop) else "ShopBot or the simulator hit an error"
+        try:
+            http.post(f"/chat/{sid}/end", json={"resolved": False, "note": f"(chat ended early: {what})"})
+        except Exception:
+            pass
+        raise
     return ChatOutcome(user_id, case.scenario, s["generation"], s["variant"], resolved, escalated, why, len(replies),
                        [c["name"] for c in calls])
 

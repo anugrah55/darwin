@@ -79,6 +79,7 @@
 </div>
 <script>
 const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let sid = null, busy = false;
 
 function add(cls, text) {
@@ -98,24 +99,32 @@ function toolLabel(t) {
   return `${t.name}(${arg})${extra}`;
 }
 
-async function start() {
+function reset() {
   $("log").innerHTML = ""; $("feedback").classList.remove("show");
-  $("text").disabled = false; $("send").disabled = false;
-  const r = await fetch("/chat/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channel: "web" }) });
-  const s = await r.json();
-  sid = s.session_id;
-  const exp = s.in_experiment ? ` · experiment #${s.experiment_id}` : "";
-  $("brain").innerHTML = `brain <b>${s.generation}</b> · ${s.variant}${exp}`;
+  $("text").disabled = false; $("send").disabled = false; sid = null;
+  $("brain").textContent = "brain: picked when you send your first message";
   add("bot", "Hi! I'm ShopBot. How can I help with your order today?");
   $("text").focus();
 }
 
+// The session starts with the customer's first message, not on page load: starting it is what asks Flagsmith
+// for a genome and records the experiment exposure, so a visitor who never types isn't counted.
+async function startSession() {
+  const r = await fetch("/chat/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channel: "web" }) });
+  if (!r.ok) throw new Error("Couldn't start a chat.");
+  const s = await r.json();
+  sid = s.session_id;
+  const exp = s.in_experiment ? ` · experiment #${esc(s.experiment_id)}` : "";
+  $("brain").innerHTML = `brain <b>${esc(s.generation)}</b> · ${esc(s.variant)}${exp}`;
+}
+
 async function send(text) {
-  if (!sid || busy || !text.trim()) return;
+  if (busy || !text.trim() || $("text").disabled) return;
   busy = true; $("send").disabled = true;
   add("me", text);
   const typing = add("bot", "…");
   try {
+    if (!sid) await startSession();
     const r = await fetch(`/chat/${sid}/message`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
     const d = await r.json();
     if (!r.ok) { typing.textContent = d.detail || "Something went wrong."; return; }
@@ -131,6 +140,8 @@ async function send(text) {
     }
     $("feedback").classList.add("show");
     if (d.escalated) system("Handed to a human specialist.");
+  } catch (e) {
+    typing.textContent = e.message || "Something went wrong.";
   } finally { busy = false; $("send").disabled = false; }
 }
 
@@ -142,7 +153,7 @@ async function end(resolved) {
 }
 
 $("form").addEventListener("submit", (e) => { e.preventDefault(); const t = $("text").value; $("text").value = ""; send(t); });
-$("yes").onclick = () => end(true); $("no").onclick = () => end(false); $("new").onclick = start;
+$("yes").onclick = () => end(true); $("no").onclick = () => end(false); $("new").onclick = reset;
 
 fetch("/api/demo-orders").then((r) => r.json()).then((orders) => {
   orders.forEach((o) => {
@@ -153,7 +164,7 @@ fetch("/api/demo-orders").then((r) => r.json()).then((orders) => {
     $("orders").appendChild(el);
   });
 });
-start();
+reset();
 </script>
 </body>
 </html>

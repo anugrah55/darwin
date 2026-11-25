@@ -110,24 +110,34 @@ class ShopBot:
             raise HTTPException(404, "unknown session")
         return session
 
+    @staticmethod
+    def _add_cost(session: Session, usage: dict | None) -> None:
+        if not usage:
+            return
+        for k, v in usage.items():
+            session.usage[k] += v
+        session.cost_usd += usage_cost(session.assignment.genome.model, {
+            "input_tokens": usage["input"], "output_tokens": usage["output"],
+            "cache_read_input_tokens": usage["cache_read"], "cache_creation_input_tokens": usage["cache_write"]})
+
     def message(self, session: Session, text: str) -> dict:
         with session.lock:
             if session.ended:
                 raise HTTPException(409, "conversation has ended")
+            messages_before, turns_before = len(session.messages), len(session.turns)
             session.messages.append({"role": "user", "content": text})
             session.turns.append({"role": "customer", "text": text})
             try:
                 turn = run_turn(self.claude, session.assignment.genome, session.messages, self.store,
                                 purpose=f"shopbot:{session.channel}")
             except BudgetExceeded as exc:
-                session.messages.pop()
-                session.turns.pop()
+                # The cap stopped this turn partway. Drop the customer's message and everything the agent added after
+                # it (a tool_use without its result would make the next request invalid), but keep what it cost.
+                del session.messages[messages_before:]
+                del session.turns[turns_before:]
+                self._add_cost(session, getattr(exc, "usage", None))
                 raise HTTPException(402, str(exc)) from exc
-            for k, v in turn.usage.items():
-                session.usage[k] += v
-            session.cost_usd += usage_cost(session.assignment.genome.model, {
-                "input_tokens": turn.usage["input"], "output_tokens": turn.usage["output"],
-                "cache_read_input_tokens": turn.usage["cache_read"], "cache_creation_input_tokens": turn.usage["cache_write"]})
+            self._add_cost(session, turn.usage)
             session.escalated = session.escalated or turn.escalated
             session.turns.append({"role": "bot", "text": turn.reply, "tools": turn.tool_calls, "stop_reason": turn.stop_reason})
             return {"reply": turn.reply, "tools": turn.tool_calls, "escalated": session.escalated,
