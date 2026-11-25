@@ -210,7 +210,7 @@ function renderLineage(s) {
     const res = g.result ? `<div class="small" style="margin-top:6px">${esc(g.result.headline)}</div>` : "";
     return `${i ? '<div class="arrow">→</div>' : ""}<div class="gen ${g.status}">
       <div class="name"><span>${esc(g.name)}</span><span class="badge b-${g.status}">${esc(g.status)}</span></div>
-      <div class="sum">${esc(g.summary || "")}</div>
+      <div class="sum">${esc(g.summary || "")}${g.author && !["coach", "baseline"].includes(g.author) ? `<div class="warn" style="margin-top:3px">✍ written by ${esc(g.author)}</div>` : ""}</div>
       <div class="kv"><span><b>${pct(st.resolution_rate)}</b> resolved</span><span><b>${pct(st.escalation_rate)}</b> to human</span></div>
       <div class="kv"><span>${st.chats || 0} chats</span><span>${esc(g.model.replace("claude-", ""))} · ${esc(g.effort)}</span>${st.avg_cost_usd != null ? `<span>$${(st.avg_cost_usd * 1000).toFixed(2)} per 1k chats</span>` : ""}</div>${res}
     </div>`;

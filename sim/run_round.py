@@ -105,8 +105,11 @@ def run_round(*, chats: int, shopbot_url: str, data_dir: Path, concurrency: int 
                         f.write(json.dumps(o.__dict__) + "\n")
                     if not quiet:
                         mark = "✓" if o.resolved else ("⇪" if o.escalated else "✗")
-                        sys.stdout.write(f"\r  {len(outcomes):>4}/{chats}  {mark} {o.generation:<6} {o.scenario:<20}")
-                        sys.stdout.flush()
+                        if sys.stdout.isatty():
+                            sys.stdout.write(f"\r  {len(outcomes):>4}/{chats}  {mark} {o.generation:<6} {o.scenario:<26}")
+                            sys.stdout.flush()
+                        elif len(outcomes) % 25 == 0 or len(outcomes) == chats:
+                            print(f"  {len(outcomes)}/{chats} chats done", flush=True)
         http.post("/_sim/flush")
     if not quiet:
         sys.stdout.write("\n")

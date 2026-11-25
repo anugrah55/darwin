@@ -522,6 +522,7 @@ class Steward:
         lineage = []
         for name, g in sorted(s["generations"].items(), key=lambda kv: int(kv[0][3:]) if kv[0][3:].isdigit() else 0):
             lineage.append({"name": name, "status": g["status"], "parent": g.get("parent"), "summary": g.get("summary"),
+                            "author": g.get("author") or ("coach" if g.get("parent") else "baseline"),
                             "goal": g.get("goal"), "model": g["genome"]["model"], "effort": g["genome"]["effort"],
                             "prompt_chars": len(g["genome"]["system_prompt"]), "result": g.get("result"),
                             "experiment_id": g.get("experiment_id"), "stats": self._stats(s, name)})
