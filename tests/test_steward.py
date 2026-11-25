@@ -641,3 +641,54 @@ def test_an_old_string_dismissal_still_works(env):
         s["experiment"]["dismissed"] = "SHIP"  # how older lab.json files stored it
     steward.check()
     assert steward.store.read()["pending"]["verdict"] == "SHIP"  # no as_of recorded, so new results bring it back
+
+
+def experiment_chats(tmp_path, exp_id, challenger, n_per_arm):
+    with open(tmp_path / "transcripts.jsonl", "a") as f:
+        for arm, generation in (("control", "gen1"), (challenger, challenger)):
+            for _ in range(n_per_arm):
+                f.write(json.dumps({"generation": generation, "variant": arm, "experiment_id": exp_id, "resolved": True,
+                                    "escalated": False, "started_at": 9e12, "cost_usd": 0.0005, "turns": []}) + "\n")
+
+
+def test_auto_check_asks_flagsmith_to_recompute_only_with_50_chats_per_arm_and_new_chats(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    experiment_chats(tmp, exp_id, "gen2", 30)
+    out = steward.check(refresh="auto")
+    assert exp_id not in fs.refreshed_at and "50 chats" in out["note"]
+    experiment_chats(tmp, exp_id, "gen2", 25)
+    steward.check(refresh="auto")
+    assert exp_id in fs.refreshed_at and steward.store.read()["experiment"]["refreshed_at_chats"] == 110
+    del fs.refreshed_at[exp_id]  # the 5-minute window has passed, but there are no new chats
+    steward.check(refresh="auto")
+    assert exp_id not in fs.refreshed_at
+
+
+def test_final_results_are_fetched_by_a_later_check_once_the_window_opens(env):
+    import time as _time
+    steward, fs, tmp = env
+    exp_id = ship_gen2(steward, fs, tmp)
+    assert steward.store.read()["finalize"][0]["experiment_id"] == exp_id
+    assert steward.check()["finalized"] == []  # the refresh window from the last check is still closed
+    fs.refreshed_at[exp_id] = _time.time() - 400
+    assert "final results" in steward.check()["finalized"][0]
+    notes = steward.check()["finalized"]
+    s = steward.store.read()
+    assert any("stored" in n for n in notes) and s["finalize"] == []
+    assert s["generations"]["gen2"]["result"]["final_readout"]["is_final"] is True
+
+
+def test_round_ends_with_a_check_while_an_experiment_runs(env, monkeypatch, capsys):
+    import darwin.cli as cli
+    import sim.run_round as rr
+    steward, fs, tmp = env
+    to_ship_card(steward, fs, tmp)
+    monkeypatch.setattr(rr, "run_round", lambda **kw: {"chats": 0})
+    monkeypatch.setattr(rr, "print_summary", lambda summary: None)
+    monkeypatch.setattr(cli, "steward", lambda: steward)
+    cli.main(["round", "--chats", "1"])
+    assert "SHIP" in capsys.readouterr().out

@@ -136,6 +136,17 @@ def cmd_round(args) -> None:
     summary = run_round(chats=args.chats, shopbot_url=settings.shopbot_url, data_dir=settings.data_dir,
                         concurrency=args.concurrency, seed=args.seed, scenario=args.scenario)
     print_summary(summary)
+    s = steward()
+    if s.store.read().get("experiment"):
+        print("\nChecking the experiment …")
+        out = s.check(actor_of(args), refresh="auto")
+        d = out.get("decision")
+        if d:
+            print(VERDICT_COLOR.get(d["verdict"], bold)(d["verdict"]) + "  " + d["headline"])
+        if out.get("note"):
+            print(dim(out["note"]))
+        if d and d["needs_approval"] and s.store.read()["pending"]:
+            print(dim("A recommendation is waiting: `darwin approve` or the Lab."))
 
 
 def cmd_evolve(args) -> None:
@@ -224,7 +235,7 @@ def cmd_watch(args) -> None:
     s = steward()
     deadline = time.time() + args.max_minutes * 60
     while time.time() < deadline:
-        out = s.check(actor_of(args))
+        out = s.check(actor_of(args), refresh="auto")
         if not out["running"]:
             print("No experiment is running.")
             return

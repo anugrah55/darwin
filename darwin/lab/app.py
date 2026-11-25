@@ -66,8 +66,11 @@ class Lab:
     def _auto_check(self) -> None:
         while not self._stop.wait(self.auto_every):
             try:
-                if self.steward.store.read().get("experiment") and not (self._worker and self._worker.is_alive()):
-                    self.steward.check("darwin")
+                s = self.steward.store.read()
+                if (s.get("experiment") or s.get("finalize")) and not (self._worker and self._worker.is_alive()):
+                    # "auto": ask Flagsmith to recompute only once there are 50 chats per arm and new chats since
+                    # the last request, so the 5-minute refresh window isn't spent right after launch.
+                    self.steward.check("darwin", refresh="auto")
             except Exception:
                 traceback.print_exc()
 

@@ -58,6 +58,8 @@ class StewardError(RuntimeError):
 
 
 REFRESH_INTERVAL = 300  # Flagsmith's RESULTS_REFRESH_MIN_INTERVAL
+MIN_CHATS_FOR_RESULTS = 50  # Flagsmith shows no inference until each arm has 50 identities
+FINAL_REFRESH_ATTEMPTS = 3
 
 
 def refresh_wait_seconds(refresh_requested_at: str | None, now: float | None = None) -> int:
@@ -466,11 +468,25 @@ class Steward:
         return {"experiment_id": experiment_id, "challenger": challenger.name}
 
     # ------------------------------------------------------------------ check
-    def check(self, actor: str = "darwin", refresh: bool = True) -> dict:
+    def arm_counts(self, exp: dict) -> dict[str, int]:
+        """Chats per arm that ShopBot recorded for this experiment, from the local transcripts."""
+        counts = {CONTROL: 0, exp["challenger"]: 0}
+        for row in transcripts.load(self.transcripts_path, since=exp.get("started_at")):
+            if row.get("experiment_id") == exp["id"] and row.get("variant") in counts:
+                counts[row["variant"]] += 1
+        return counts
+
+    def check(self, actor: str = "darwin", refresh: bool | str = True) -> dict:
+        """Read Flagsmith's results and apply the rules.
+
+        refresh=True asks Flagsmith to recompute (at most once every 5 minutes). refresh="auto" asks only once the
+        transcripts show 50 chats per arm and new chats since the last request, so the 5-minute window isn't spent
+        on results Flagsmith can't compute yet.
+        """
         s = self.store.read()
         exp = s["experiment"]
         if not exp:
-            return {"running": False}
+            return {"running": False, "finalized": self._finalize_results(s)}
         if self._busy_now(s):
             return {"running": True, "busy": True, "readout": exp.get("readout"), "decision": exp.get("decision"),
                     "note": f"Darwin is busy ({s['busy']['what']}); results weren't checked this time."}
@@ -494,6 +510,17 @@ class Steward:
             note = "Flagsmith shows this experiment as paused: no new traffic is split. Resume it in Flagsmith, or stop it."
         current = self.admin.results(exp["id"]) or {}
         before = current.get("as_of")
+        chats = None
+        if refresh == "auto":
+            counts = self.arm_counts(exp)
+            chats = sum(counts.values())
+            if min(counts.values()) < MIN_CHATS_FOR_RESULTS:
+                refresh = False
+                arms = ", ".join(f"{exp['champion'] if k == CONTROL else k} {v}" for k, v in counts.items())
+                note = note or (f"Darwin asks Flagsmith to recompute once each arm has {MIN_CHATS_FOR_RESULTS} chats "
+                                f"(so far: {arms}).")
+            elif chats <= (exp.get("refreshed_at_chats") or 0):
+                refresh = False  # nothing new since the last recompute
         wait = refresh_wait_seconds(current.get("refresh_requested_at"))
         if refresh and wait > 0:
             refresh = False
@@ -501,6 +528,10 @@ class Steward:
         if refresh:
             try:
                 self.admin.run(self.admin.cmd_refresh_results(exp["id"]))
+                if chats is not None:
+                    with self.store.transaction() as st:
+                        if st["experiment"] and st["experiment"]["id"] == exp["id"]:
+                            st["experiment"]["refreshed_at_chats"] = chats
                 deadline = time.time() + self.wait_for_results
                 while time.time() < deadline:
                     if (self.admin.results(exp["id"]) or {}).get("as_of") != before:
@@ -673,8 +704,52 @@ class Steward:
             st["experiment"] = None
             if st["pending"] and st["pending"].get("kind") == "decision":
                 st["pending"] = None
+            if e.get("started_at"):
+                # Flagsmith marks results final only after a refresh that follows `complete`, and refreshes are
+                # 5 minutes apart, so a later check does it once the window opens.
+                st.setdefault("finalize", []).append({"experiment_id": e["id"], "generation": e["challenger"],
+                                                      "split": e.get("split"), "attempts": 0})
             log_event(st, kind, history, actor, generation=e["challenger"], experiment_id=e["id"], verdict=verdict)
         return True
+
+    def _finalize_results(self, state: dict) -> list[str]:
+        """Ask Flagsmith for the final numbers of experiments Darwin settled, once each refresh window opens."""
+        notes = []
+        for job in list(state.get("finalize") or []):
+            eid, attempts, done, final = job["experiment_id"], job.get("attempts", 0), False, None
+            try:
+                results = self.admin.results(eid)
+                if results and results.get("is_final"):
+                    done, final = True, results
+                elif attempts >= FINAL_REFRESH_ATTEMPTS:
+                    done = True  # Flagsmith hasn't produced final numbers after several tries; stop asking
+                elif refresh_wait_seconds((results or {}).get("refresh_requested_at")) == 0:
+                    self.admin.run(self.admin.cmd_refresh_results(eid))
+                    attempts += 1
+                    notes.append(f"asked Flagsmith for experiment #{eid}'s final results")
+            except Throttled:
+                pass
+            except FlagsmithError as exc:
+                done = exc.status in (400, 404)  # already final, never started, or deleted: nothing more to do
+            readout = None
+            if final is not None:
+                try:
+                    readout = parse_readout(self.admin.experiment(eid), final, challenger=job["generation"],
+                                            expected_split=job.get("split") or {}).to_dict()
+                    notes.append(f"stored experiment #{eid}'s final results")
+                except FlagsmithError:
+                    readout = None
+            with self.store.transaction() as st:
+                queue = st.get("finalize") or []
+                for j in queue:
+                    if j["experiment_id"] == eid:
+                        j["attempts"] = attempts
+                if done:
+                    st["finalize"] = [j for j in queue if j["experiment_id"] != eid]
+                    gen = st["generations"].get(job["generation"]) or {}
+                    if readout and gen.get("result"):
+                        gen["result"]["final_readout"] = readout
+        return notes
 
     def _settle_decision(self, exp: dict, verdict: str, actor: str, headline: str, reasons: list[str], state: dict) -> None:
         status = {SHIP: "champion", DISCARD: "discarded", KILL: "killed", STOP: "stopped"}[verdict]
