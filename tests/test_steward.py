@@ -784,3 +784,19 @@ def test_a_revision_never_reuses_a_variant_key_flagsmith_already_has(env):
     assert revised["challenger"] == "gen3" and s["generations"]["gen2"]["status"] == "rejected"
     steward.approve("anugrah", card_id=revised["id"])
     assert steward.store.read()["experiment"]["challenger"] == "gen3"
+
+
+def test_a_lab_json_written_by_the_previous_version_still_works(env):
+    """The dev run's lab.json has no finalize queue, no planned sample, no busy pid and old guardrail texts."""
+    steward, fs, tmp = env
+    old = json.loads((Path(__file__).parent / "fixtures" / "lab_v1.json").read_text())
+    (tmp / "lab.json").write_text(json.dumps(old))
+    champion = Genome.model_validate(old["generations"]["gen5"]["genome"])
+    fs.run(fs.cmd_create_feature("shopbot_brain", champion.to_flag_value(), "gen5"))
+    for name in ("gen2", "gen3", "gen4", "gen5"):
+        fs.run(fs.cmd_add_variant("shopbot_brain", name, Genome.model_validate(old["generations"][name]["genome"]).to_flag_value()))
+    assert steward.status()["champion"] == "gen5"
+    assert steward.check() == {"running": False, "finalized": []}
+    chats(tmp, "gen5")
+    card = steward.propose()
+    assert card["challenger"] == "gen6" and card["plan"]["min_per_arm"] == 100

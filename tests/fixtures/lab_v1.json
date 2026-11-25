@@ -1,0 +1,206 @@
+{
+ "flag": "shopbot_brain",
+ "feature_id": 1,
+ "metrics": {
+  "resolved": 1,
+  "escalated": 2,
+  "cost_microusd": 3
+ },
+ "champion": "gen5",
+ "generations": {
+  "gen1": {
+   "genome": {
+    "name": "gen1",
+    "generation": 1,
+    "parent": null,
+    "model": "claude-haiku-5-5",
+    "effort": "medium",
+    "max_tokens": 2048,
+    "system_prompt": "You are ShopBot (gen1).",
+    "summary": "Baseline: a short, generic support prompt."
+   },
+   "status": "retired",
+   "born_at": 1795616038.930336,
+   "became_champion_at": 1795616038.930339,
+   "parent": null,
+   "summary": "Baseline: a short, generic support prompt."
+  },
+  "gen2": {
+   "genome": {
+    "name": "gen2",
+    "generation": 2,
+    "parent": "gen1",
+    "model": "claude-haiku-5-5",
+    "effort": "medium",
+    "max_tokens": 2048,
+    "system_prompt": "You are ShopBot (gen2).",
+    "summary": "Resolve late orders by policy; escalate only when policy requires"
+   },
+   "status": "retired",
+   "born_at": 1795616252.8013718,
+   "parent": "gen1",
+   "goal": "quality",
+   "summary": "Resolve late orders by policy; escalate only when policy requires",
+   "option_id": 1,
+   "experiment_id": 1,
+   "launched_at": 1795616269.88776,
+   "launched_by": "claude-dev-run",
+   "decided_at": 1795616682.318772,
+   "decided_by": "claude-dev-run",
+   "result": {
+    "verdict": "SHIP",
+    "headline": "Ship gen2: 91% vs 69% for gen1, 99.8% chance to win.",
+    "reasons": [
+     "resolved: gen2 91% vs 69% for gen1 (lift +32%, 95% CI +10% … +53%, 99.8% chance to win)"
+    ],
+    "readout": null,
+    "experiment_id": 1
+   },
+   "became_champion_at": 1795616682.318784,
+   "hypothesis": "If gen2 resolves late-delivery cases (including 'get me a human' requests) by policy and stops offering escalations the policy doesn't require, the resolved rate rises from 73% to about 85% and escalations fall from 25% to under 10%, because 17 of the 24 failures were unnecessary handoffs on cases the policy fully covers.",
+   "expected_effect": "Resolved: roughly +10 to +15 points. Escalated: down from 25% to around 8–12% (refunds over $500 and customers who insist remain). Cost per chat: roughly flat to +15%. The longer prompt adds input tokens, but fewer escalation turns and fewer get_policy calls (key rules are now in the prompt) partly offset that, staying well under the +30% cap."
+  },
+  "gen3": {
+   "genome": {
+    "name": "gen3",
+    "generation": 3,
+    "parent": "gen2",
+    "model": "claude-haiku-5-5",
+    "effort": "low",
+    "max_tokens": 2048,
+    "system_prompt": "You are ShopBot (gen3).",
+    "summary": "Create returns without asking reason; no escalation invites; low effort"
+   },
+   "status": "retired",
+   "born_at": 1795616766.879492,
+   "parent": "gen2",
+   "goal": "cost",
+   "summary": "Create returns without asking reason; no escalation invites; low effort",
+   "option_id": 2,
+   "experiment_id": 2,
+   "launched_at": 1795616845.483938,
+   "launched_by": "claude-dev-run",
+   "hypothesis": "If ShopBot creates returns without asking for a reason (defaulting to \"other\"), stops inviting escalation, skips get_policy for covered topics, and runs at low effort, then cost per chat falls by at least 30% and resolution rises, because the drop-offs and unneeded handoffs seen in 7 of 7 failures disappear while fewer tool calls, turns and reasoning tokens are used.",
+   "expected_effect": "Resolved rises from about 91% toward 96% or more as the return-reason drop-offs are removed. Escalated falls from about 5% toward 1–2%, since the remaining handoffs should only be refunds over $500 or explicit repeat requests. Cost per chat falls about 30–45%, driven by low effort, fewer get_policy calls and fewer turns per chat.",
+   "decided_at": 1795617293.593045,
+   "decided_by": "claude-dev-run",
+   "result": {
+    "verdict": "SHIP",
+    "headline": "Ship gen3: cost per chat $0.00067 vs $0.00073 for gen2 (-8%), 99.7% chance it's lower.",
+    "reasons": [
+     "gen3: cost per chat $0.00067 vs $0.00073 for gen2 (-8%, 95% CI -14% … -2%, 99.7% chance it's lower)"
+    ],
+    "readout": null,
+    "experiment_id": 2
+   },
+   "became_champion_at": 1795617293.5930629
+  },
+  "gen4": {
+   "genome": {
+    "name": "gen4",
+    "generation": 4,
+    "parent": "gen3",
+    "model": "claude-haiku-5-5",
+    "effort": "low",
+    "max_tokens": 2048,
+    "system_prompt": "You are ShopBot (gen4).",
+    "summary": "Trim the prompt to two lines to cut cost"
+   },
+   "status": "retired",
+   "born_at": 1795617330.980115,
+   "parent": "gen3",
+   "goal": "cost",
+   "summary": "Trim the prompt to two lines to cut cost",
+   "author": "pm (dev run)",
+   "option_id": 3,
+   "experiment_id": 3,
+   "launched_at": 1795617336.088206,
+   "launched_by": "claude-dev-run",
+   "hypothesis": "A two-line prompt sends fewer tokens per call, so cost per chat falls without hurting resolution.",
+   "expected_effect": "Proposed by pm (dev run); not predicted by the Coach.",
+   "decided_at": 1795617727.55849,
+   "decided_by": "claude-dev-run",
+   "result": {
+    "verdict": "SHIP",
+    "headline": "Ship gen4: cost per chat $0.00048 vs $0.00066 for gen3 (-27%), 100.0% chance it's lower.",
+    "reasons": [
+     "gen4: cost per chat $0.00048 vs $0.00066 for gen3 (-27%, 95% CI -32% … -23%, 100.0% chance it's lower)"
+    ],
+    "readout": null,
+    "experiment_id": 3
+   },
+   "became_champion_at": 1795617727.5584981
+  },
+  "gen5": {
+   "genome": {
+    "name": "gen5",
+    "generation": 5,
+    "parent": "gen4",
+    "model": "claude-haiku-5-5",
+    "effort": "low",
+    "max_tokens": 2048,
+    "system_prompt": "You are ShopBot (gen5).",
+    "summary": "Resolve human demands by policy first; no escalation offers"
+   },
+   "status": "champion",
+   "born_at": 1795617756.006586,
+   "parent": "gen4",
+   "goal": "quality",
+   "summary": "Resolve human demands by policy first; no escalation offers",
+   "option_id": 4,
+   "experiment_id": 4,
+   "launched_at": 1795617768.776551,
+   "launched_by": "claude-dev-run",
+   "hypothesis": "If the prompt restores 'escalate only when policy requires; resolve demands for a human by policy first; never offer escalation' and states the late-delivery tiers, the resolved rate rises from 94% toward 98%+ and escalations drop. The failures are all policy-resolvable late orders that were handed off.",
+   "expected_effect": "Resolved up about 4–5 points, to about 98–99%. Escalated down from 13% to about 6–8%, leaving only policy-required handoffs such as refunds over $500. Cost per chat up roughly 10–20% from the longer prompt and the extra lookup/credit calls in former instant-escalation chats, partly offset by fewer get_policy calls for late orders. This stays within the 30% cap.",
+   "decided_at": 1795618175.355105,
+   "decided_by": "claude-dev-run",
+   "result": {
+    "verdict": "SHIP",
+    "headline": "Ship gen5: resolved 100% vs 85% for gen4 (+18%), 100.0% chance it's better.",
+    "reasons": [
+     "gen5: resolved 100% vs 85% for gen4 (+18%, 95% CI +7% … +29%, 100.0% chance it's better)"
+    ],
+    "readout": null,
+    "experiment_id": 4
+   },
+   "became_champion_at": 1795618175.355123
+  }
+ },
+ "experiment": null,
+ "pending": null,
+ "busy": null,
+ "history": [
+  {
+   "ts": 1795616038.930347,
+   "kind": "init",
+   "actor": "anugrahsengar",
+   "text": "gen1 is the champion; Darwin is watching shopbot_brain"
+  },
+  {
+   "ts": 1795616252.8013928,
+   "kind": "proposed",
+   "actor": "coach",
+   "text": "Coach proposed gen2: Resolve late orders by policy; escalate only when policy requires",
+   "generation": "gen2",
+   "chats_read": 28,
+   "coach_cost_usd": 0.1915
+  },
+  {
+   "ts": 1795616269.887813,
+   "kind": "launched",
+   "actor": "claude-dev-run",
+   "text": "claude-dev-run approved gen2; experiment #1 is running (gen1 vs gen2, 50/50)",
+   "generation": "gen2",
+   "experiment_id": 1
+  },
+  {
+   "ts": 1795616587.6064472,
+   "kind": "recommended",
+   "actor": "darwin",
+   "text": "Rules recommend SHIP for gen2: Ship gen2: 91% vs 69% for gen1, 99.8% chance to win.",
+   "generation": "gen2",
+   "experiment_id": 1
+  }
+ ]
+}
