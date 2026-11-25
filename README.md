@@ -31,18 +31,15 @@ card that shows the exact Flagsmith CLI commands it will run.
 ShopBot fixed the late order, then offered “a specialist” anyway, the customer said yes, and a human got a solved
 ticket. The Coach found that pattern in 8 chats.</sub></p>
 
-<table>
-<tr>
-<td width="50%"><img src="docs/img/flagsmith-results.gif" alt="Flagsmith's own experiment page for gen1 vs gen2: the Coach's hypothesis, a >99% winner, +31.8% lift, gen2 rolled out to everyone"></td>
-<td width="50%"><img src="docs/img/cli-status.gif" alt="darwin status and darwin spend in the terminal"></td>
-</tr>
-<tr>
-<td><sub><b>Flagsmith does the judging.</b> The experiment Darwin created, with the Coach's hypothesis,
-“&gt;99% winner probability” and “gen2 rolled out to everyone”.</sub></td>
-<td><sub><b>Or drive it from the terminal.</b> <code>darwin status</code> shows the lineage;
-<code>darwin spend</code> shows Claude spend against the hard cap.</sub></td>
-</tr>
-</table>
+<p align="center"><img src="docs/img/flagsmith-results.gif" alt="Flagsmith's own experiment page for gen1 vs gen2: the Coach's hypothesis, a >99% winner, +31.8% lift, gen2 rolled out to everyone" width="100%"></p>
+
+<p align="center"><sub><b>Flagsmith does the judging.</b> The experiment Darwin created, in Flagsmith's own dashboard: the Coach's
+hypothesis, “&gt;99% winner probability”, +31.8% lift, and “gen2 rolled out to everyone”.</sub></p>
+
+<p align="center"><img src="docs/img/cli-status.gif" alt="darwin status and darwin spend in the terminal" width="100%"></p>
+
+<p align="center"><sub><b>Or drive it all from the terminal.</b> <code>darwin status</code> shows the lineage;
+<code>darwin spend</code> shows Claude spend against the hard cap.</sub></p>
 
 ## 📈 What happened in our run
 
