@@ -105,7 +105,9 @@ def decide(readout: Readout | None, policy: DecisionPolicy = DecisionPolicy(), *
 
     if primary is None or primary.inference is None:
         arms = primary.arms if primary else {}
-        counts = ", ".join(f"{k}: {a.n} chats / {a.total:.0f} resolved" for k, a in sorted(arms.items())) or "no traffic yet"
+        def count(a):
+            return f"{a.n} chats" + (f" / {a.total:.0f} {policy.primary}" if primary and primary.aggregation == "occurrence" else "")
+        counts = ", ".join(f"{k}: {count(a)}" for k, a in sorted(arms.items())) or "no traffic yet"
         return Decision(COLLECTING_DATA, "Collecting data.",
                         [f"Flagsmith shows a result once each arm has 50 identities and 5 conversions ({counts})."],
                         guardrails)
