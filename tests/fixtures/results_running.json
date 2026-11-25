@@ -1,0 +1,77 @@
+{
+  "experiment": {
+    "id": 2,
+    "name": "probe_brain_13831 gen1 vs gen2",
+    "status": "completed",
+    "metrics": [
+      {
+        "id": 2,
+        "metric": 2,
+        "metric_name": "resolved_probe_brain_13831",
+        "aggregation": "occurrence",
+        "direction": "up",
+        "expected_direction": "increase",
+        "created_at": "2026-11-25T13:37:13.672310Z"
+      }
+    ],
+    "rollout_decision": "variant"
+  },
+  "results": {
+    "as_of": "2026-11-25T13:37:18.102661Z",
+    "last_error_at": null,
+    "refresh_requested_at": "2026-11-25T13:37:18.032733Z",
+    "payload": {
+      "metrics": [
+        {
+          "variants": {
+            "gen2": {
+              "n": 58,
+              "sum": 45.0,
+              "sum_squares": 45.0
+            },
+            "control": {
+              "n": 72,
+              "sum": 32.0,
+              "sum_squares": 32.0
+            }
+          },
+          "inference": {
+            "gen2": {
+              "lift": 0.7456896551724139,
+              "ci_low": 0.23048727708169447,
+              "ci_high": 1.2608920332631333,
+              "chance_to_win": 0.9977215755281283
+            }
+          },
+          "metric_id": 2,
+          "conversions_timeseries": {
+            "points": [
+              {
+                "bucket": "2026-11-25T13:00:00+00:00",
+                "converted_identities": {
+                  "gen2": 45,
+                  "control": 32
+                }
+              }
+            ],
+            "granularity": "hour"
+          }
+        }
+      ],
+      "srm_p_value": null,
+      "exposures_timeseries": {
+        "points": [
+          {
+            "bucket": "2026-11-25T13:00:00+00:00",
+            "new_identities": {
+              "gen2": 58,
+              "control": 72
+            }
+          }
+        ],
+        "granularity": "hour"
+      }
+    },
+    "is_final": false
+  }
+}
