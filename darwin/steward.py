@@ -22,7 +22,7 @@ from .genome import Genome, GenomeError
 from .llm import Claude, make_claude
 from .notebook import Notebook
 from .results import CONTROL, parse_readout
-from .rules import DISCARD, KILL, SHIP, DecisionPolicy, Guardrail, decide
+from .rules import DISCARD, KILL, LABELS, SHIP, DecisionPolicy, Guardrail, decide
 from .state import StateStore, log_event
 
 METRICS = {
@@ -37,11 +37,15 @@ EXPERIMENT_METRICS = {
     "quality": [("resolved", "increase"), ("escalated", "not_increase"), ("cost_microusd", "not_increase")],
     "cost": [("cost_microusd", "decrease"), ("resolved", "not_decrease"), ("escalated", "not_increase")],
 }
+# Guardrail margins per goal. Rates are small, so occurrence guardrails use absolute points (0.05 = 5 points);
+# cost uses a relative margin. A guardrail must be proven within its margin before a winner ships.
 POLICIES = {
     "quality": DecisionPolicy(primary="resolved", guardrails=(
-        Guardrail("escalated", 0.0, "escalations to a human"), Guardrail("cost_microusd", 0.30, "cost per chat"))),
+        Guardrail("escalated", margin=0.05, worse="up", scale="points", label="escalations", plural=True),
+        Guardrail("cost_microusd", margin=0.30, worse="up", scale="relative", label="cost per chat"))),
     "cost": DecisionPolicy(primary="cost_microusd", guardrails=(
-        Guardrail("resolved", 0.0, "resolution rate"), Guardrail("escalated", 0.0, "escalations to a human"))),
+        Guardrail("resolved", margin=0.05, worse="down", scale="points", label="resolution"),
+        Guardrail("escalated", margin=0.05, worse="up", scale="points", label="escalations", plural=True))),
 }
 SPLIT = 50  # % of traffic the challenger gets
 
@@ -346,6 +350,20 @@ class Steward:
             "coach_cost_usd": round(coach_cost, 4), "request_path": str(request_path),
             "commands": [c.to_dict() for c in self._launch_plan(champion, genome, goal, proposal.hypothesis, card_id=card_id)],
             "metrics": [f"{m} ({d.replace('_', ' ')})" for m, d in EXPERIMENT_METRICS[goal]],
+            "plan": self._experiment_plan(goal),
+        }
+
+    def _experiment_plan(self, goal: str) -> dict:
+        """What will decide the experiment, fixed at launch: the sample per arm and every rule."""
+        policy = POLICIES[goal]
+        per_arm = self.settings.min_per_arm
+        return {
+            "min_per_arm": per_arm,
+            "rules": [f"Darwin calls a winner or a loser once each arm has {per_arm} chats (a guardrail breach kills sooner)",
+                      f"ship: at least {policy.ship_at:.0%} chance {LABELS.get(policy.primary, policy.primary)} is better, "
+                      f"and every guardrail proven within its margin",
+                      f"discard: {policy.discard_at:.0%} chance or less",
+                      *[f"kill: {g.describe()} (proven at {policy.breach_at:.0%})" for g in policy.guardrails]],
         }
 
     # ------------------------------------------------------------------ launch
@@ -425,7 +443,8 @@ class Steward:
             st["experiment"] = {"id": experiment_id, "champion": champion.name, "challenger": challenger.name,
                                 "goal": card["goal"], "split": {CONTROL: (100 - SPLIT) / 100, challenger.name: SPLIT / 100},
                                 "started_at": _now(), "launched_by": actor, "option_id": option_id,
-                                "readout": None, "decision": None, "dismissed": None}
+                                "min_per_arm": (card.get("plan") or {}).get("min_per_arm", self.settings.min_per_arm),
+                                "card_id": card["id"], "readout": None, "decision": None, "dismissed": None}
             st["pending"] = None
             log_event(st, "launched", f"{actor} approved {challenger.name}; experiment #{experiment_id} is running "
                                       f"({champion.name} vs {challenger.name}, {SPLIT}/{100 - SPLIT})", actor,
@@ -459,7 +478,8 @@ class Steward:
         detail = self.admin.experiment(exp["id"])
         results = self.admin.results(exp["id"])
         readout = parse_readout(detail, results, challenger=exp["challenger"], expected_split=exp["split"])
-        decision = decide(readout, POLICIES[exp["goal"]], champion=exp["champion"])
+        decision = decide(readout, POLICIES[exp["goal"]], champion=exp["champion"],
+                          min_per_arm=exp.get("min_per_arm", self.settings.min_per_arm))
         with self.store.transaction() as st:
             e = st["experiment"]
             if not e or e["id"] != exp["id"]:

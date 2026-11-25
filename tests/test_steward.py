@@ -400,3 +400,18 @@ def test_cli_unlock_reports_what_it_cleared(env, monkeypatch, capsys):
     cli.main(["unlock", "--as", "anugrah"])
     assert "Cleared: The Coach is revising gen2" in capsys.readouterr().out
     assert steward.store.read()["busy"] is None
+
+
+def test_the_planned_sample_is_on_the_launch_card_and_fixed_at_launch(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    assert card["plan"]["min_per_arm"] == 100
+    assert any("escalations may not rise more than 5 pts" in r for r in card["plan"]["rules"])
+    exp_id = steward.approve("a")["experiment_id"]
+    assert steward.store.read()["experiment"]["min_per_arm"] == 100
+    fs.payloads[exp_id] = payload(steward.store.read()["metrics"], "gen2", n=(80, 80))
+    d = steward.check()["decision"]
+    assert d["verdict"] == "COLLECTING_DATA" and "80 of 100 chats per arm" in d["headline"]
+    assert steward.store.read()["pending"] is None

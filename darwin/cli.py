@@ -74,6 +74,10 @@ def print_card(card: dict) -> None:
             elif line.startswith("-"):
                 print(bar + red(line[:150]))
         print(bar + dim("Risk: " + p["risks"]))
+        if card.get("plan"):
+            print(bar + bold("What decides it"))
+            for rule in card["plan"]["rules"]:
+                print(bar + f"  • {rule}")
     else:
         color = VERDICT_COLOR.get(card["verdict"], bold)
         print(bold(f"┌ Decision on experiment #{card['experiment_id']}: ") + color(card["verdict"]))

@@ -56,6 +56,7 @@ class Settings:
     lab_host: str
     lab_port: int
     notebook_path: Path
+    min_per_arm: int = 100  # chats per arm an experiment plans for before Darwin calls a winner or a loser
 
     @classmethod
     def load(cls) -> Settings:
@@ -90,6 +91,7 @@ class Settings:
             lab_host=env("DARWIN_LAB_HOST", "127.0.0.1"),
             lab_port=int(env("DARWIN_LAB_PORT", "8200")),
             notebook_path=Path(env("DARWIN_NOTEBOOK", str(ROOT / "LAB_NOTEBOOK.md"))),
+            min_per_arm=int(env("DARWIN_MIN_PER_ARM", "100")),
         )
 
     def cli_env(self) -> dict[str, str]:

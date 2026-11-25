@@ -222,20 +222,31 @@ function armValue(m, arm) {
   const a = m.arms[arm]; if (!a || !a.n) return "–";
   return m.aggregation === "occurrence" ? pct(a.mean) : `$${(a.mean / 1e6).toFixed(5)}`;
 }
-const GUARD_COLOR = { ok: "var(--accent)", watch: "var(--amber)", breach: "var(--red)", no_data: "var(--faint)" };
+const GUARD_COLOR = { ok: "var(--accent)", uncertain: "var(--amber)", breach: "var(--red)", no_data: "var(--faint)" };
+const GUARD_VERDICT = { ok: "within the margin", uncertain: "not proven safe yet", breach: "worse than the margin", no_data: "no data yet" };
+const prob = (p) => (p < 0.001 ? "<0.1" : p > 0.999 ? ">99.9" : p < 0.01 || p > 0.99 ? (p * 100).toFixed(1) : (p * 100).toFixed(0)) + "%";
+function guardNote(guard) {
+  if (!guard || guard.p_bad == null) return "";
+  const counts = guard.source === "counts" ? " · from raw counts: Flagsmith shows no result until each arm has 5 conversions" : "";
+  return `<div class="small faint" style="margin-top:2px">${prob(guard.p_bad)} chance it is worse than the margin (${esc(guard.margin)})${counts}</div>`;
+}
 function ciBar(inf, lowerBetter, guard) {
+  if (!inf && guard && guard.p_bad != null) {
+    const color = GUARD_COLOR[guard.state];
+    return `<div class="row small" style="justify-content:space-between"><span class="faint">Flagsmith shows no result yet</span>
+      <span style="color:${color};font-weight:600">${GUARD_VERDICT[guard.state]}</span></div>${guardNote(guard)}`;
+  }
   if (!inf) return `<div class="small faint">Not enough data yet (Flagsmith needs 50 chats and 5 conversions per arm)</div>`;
   const span = Math.max(0.25, Math.abs(inf.ci_low), Math.abs(inf.ci_high)) * 1.1;
   const x = (v) => 50 + (v / span) * 50;
   const good = lowerBetter ? inf.lift < 0 : inf.lift > 0;
   const color = guard ? GUARD_COLOR[guard.state] : inf.chance_to_win >= 0.95 ? "var(--accent)" : inf.chance_to_win <= 0.05 ? "var(--red)" : "var(--amber)";
   if (guard) {
-    const verdict = { ok: "within limits", watch: "watch: probably worse", breach: "breach: worse beyond the allowed limit", no_data: "not enough data" }[guard.state];
     return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
       <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
       <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>
     <div class="row small" style="justify-content:space-between"><span>change <b>${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
-    <span style="color:${color};font-weight:600">${verdict}</span></div>`;
+    <span style="color:${color};font-weight:600">${GUARD_VERDICT[guard.state]}</span></div>${guardNote(guard)}`;
   }
   return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
       <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
@@ -327,6 +338,7 @@ function renderCard(s) {
         ${Object.keys(set).length ? `<div class="small" style="margin-top:6px">${Object.entries(set).map(([k, v]) => `${esc(k)}: <b>${esc(v.from)}</b> → <b>${esc(v.to)}</b>`).join(" · ")}</div>` : ""}</div>
       <div class="section"><details><summary class="label" style="cursor:pointer">Prompt diff <span class="good">+${c.diff.lines_added}</span> <span class="bad">−${c.diff.lines_removed}</span></summary>
         <div class="diff mono">${diffHtml(c.diff.prompt_diff)}</div></details></div>
+      ${c.plan ? `<div class="section"><div class="label">What decides it</div><ul class="plain small">${c.plan.rules.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
       <div class="section small muted"><b>Risk:</b> ${esc(p.risks)} · Experiment metrics: ${esc(c.metrics.join(", "))} · Coach cost $${(c.coach_cost_usd || 0).toFixed(3)}</div>`;
   } else {
     body = `<div class="card-title"><h3>${esc(c.verdict === "SHIP" ? `Ship ${c.challenger}?` : c.verdict === "KILL" ? `Kill ${c.challenger}?` : `Discard ${c.challenger}?`)}</h3>
