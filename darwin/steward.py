@@ -168,6 +168,14 @@ class Steward:
                 if (s.get("busy") or {}).get("token") == token:
                     s["busy"] = None
 
+    @staticmethod
+    def _dismissed(exp: dict, verdict: str, as_of: str | None) -> bool:
+        """"Keep running" holds for the results it was made on. New results from Flagsmith bring the card back."""
+        d = exp.get("dismissed")
+        if isinstance(d, str):  # older lab.json files stored only the verdict
+            d = {"verdict": d, "as_of": None}
+        return bool(d) and d.get("verdict") == verdict and d.get("as_of") == as_of
+
     def _busy_now(self, state: dict) -> dict | None:
         busy = state.get("busy")
         return None if busy_is_stale(busy) else busy
@@ -512,7 +520,7 @@ class Steward:
         latest = self.store.read()
         card = None
         if decision.needs_approval and latest["experiment"] and latest["experiment"]["id"] == exp["id"] \
-                and latest["experiment"].get("dismissed") != decision.verdict and not same_card(latest["pending"]):
+                and not self._dismissed(latest["experiment"], decision.verdict, readout.as_of) and not same_card(latest["pending"]):
             card = self._decision_card(latest, exp, decision, detail, readout.to_dict())
         with self.store.transaction() as st:
             e = st["experiment"]
@@ -520,8 +528,11 @@ class Steward:
                 return {"running": False}
             e["readout"], e["decision"], e["checked_at"], e["note"] = readout.to_dict(), decision.to_dict(), _now(), note
             e["flagsmith_status"] = detail.get("status")
+            dismissed = e.get("dismissed")
+            if dismissed and (dismissed.get("as_of") if isinstance(dismissed, dict) else None) != readout.as_of:
+                e["dismissed"] = None  # Flagsmith has new results since the human chose to keep running
             pending = st["pending"]
-            if decision.needs_approval and e.get("dismissed") != decision.verdict:
+            if decision.needs_approval and not self._dismissed(e, decision.verdict, readout.as_of):
                 if same_card(pending):
                     pending.update(headline=decision.headline, reasons=decision.reasons, readout=readout.to_dict())
                 elif card is not None and (not pending or pending.get("kind") == "decision"):
@@ -819,10 +830,14 @@ class Steward:
             raise StewardError(f"busy: {s['busy']['what']}")
         if card["kind"] == "decision":
             with self.store.transaction() as st:
-                st["experiment"]["dismissed"] = card["verdict"]
-                st["pending"] = None
+                e = st["experiment"]
+                if e and e["id"] == card["experiment_id"]:
+                    e["dismissed"] = {"verdict": card["verdict"], "as_of": (card.get("readout") or {}).get("as_of")}
+                if st["pending"] and st["pending"]["id"] == card["id"]:
+                    st["pending"] = None
                 log_event(st, "dismissed", f"{actor} kept the experiment running instead of {card['verdict']}"
-                          + (f": {note}" if note else ""), actor, experiment_id=card["experiment_id"])
+                          + (f": {note}" if note else "") + ". Darwin asks again when Flagsmith has new results.", actor,
+                          experiment_id=card["experiment_id"])
             return None
         if note:
             return self._revise(card, note, actor)

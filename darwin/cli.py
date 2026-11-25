@@ -202,15 +202,22 @@ def cmd_check(args) -> None:
     if not out["running"]:
         print("No experiment is running.")
         return
-    d = out["decision"]
+    d = out.get("decision")
+    if not d:
+        print(dim(out.get("note") or "No results yet."))
+        return
     print(VERDICT_COLOR.get(d["verdict"], bold)(d["verdict"]) + "  " + d["headline"])
     for r in d["reasons"]:
         print("  · " + r)
     if out.get("note"):
         print(dim(out["note"]))
     if d["needs_approval"]:
-        print()
-        print_card(steward().store.read()["pending"])
+        pending = steward().store.read()["pending"]
+        if pending:
+            print()
+            print_card(pending)
+        else:
+            print(dim("You chose to keep running. Darwin asks again when Flagsmith has new results."))
 
 
 def cmd_watch(args) -> None:
@@ -221,11 +228,22 @@ def cmd_watch(args) -> None:
         if not out["running"]:
             print("No experiment is running.")
             return
-        d = out["decision"]
+        if out.get("reconciled"):
+            print(time.strftime("%H:%M:%S ") + out["note"], flush=True)
+            if out["reconciled"].get("card"):
+                print()
+                print_card(out["reconciled"]["card"])
+            return
+        d = out.get("decision")
+        if not d:
+            print(time.strftime("%H:%M:%S ") + dim(out.get("note") or "no results yet"), flush=True)
+            time.sleep(args.every)
+            continue
         print(time.strftime("%H:%M:%S ") + VERDICT_COLOR.get(d["verdict"], bold)(f"{d['verdict']:<15}") + d["headline"], flush=True)
-        if d["needs_approval"]:
+        pending = s.store.read()["pending"]
+        if d["needs_approval"] and pending:
             print()
-            print_card(s.store.read()["pending"])
+            print_card(pending)
             return
         time.sleep(args.every)
 

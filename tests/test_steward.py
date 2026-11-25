@@ -616,3 +616,28 @@ def test_check_never_calls_flagsmith_while_holding_the_state_lock(env):
         setattr(fs, name, guarded)
     assert steward.check()["decision"]["verdict"] == "SHIP"
     assert steward.store.read()["pending"]["kind"] == "decision"
+
+
+def test_keep_running_lasts_until_flagsmith_has_new_results(env, monkeypatch, capsys):
+    import darwin.cli as cli
+    steward, fs, tmp = env
+    exp_id = to_ship_card(steward, fs, tmp)
+    steward.reject("a")  # "Keep running"
+    assert steward.check()["decision"]["verdict"] == "SHIP" and steward.store.read()["pending"] is None
+    monkeypatch.setattr(cli, "steward", lambda: steward)
+    cli.cmd_check(SimpleNamespace(actor="a", no_refresh=True))  # used to crash on print_card(None)
+    assert "keep running" in capsys.readouterr().out
+    fs.as_of[exp_id] = "2026-11-26T11:00:00Z"  # Flagsmith recomputed
+    steward.check()
+    s = steward.store.read()
+    assert s["pending"]["verdict"] == "SHIP" and s["experiment"]["dismissed"] is None
+
+
+def test_an_old_string_dismissal_still_works(env):
+    steward, fs, tmp = env
+    exp_id = to_ship_card(steward, fs, tmp)
+    with steward.store.transaction() as s:
+        s["pending"] = None
+        s["experiment"]["dismissed"] = "SHIP"  # how older lab.json files stored it
+    steward.check()
+    assert steward.store.read()["pending"]["verdict"] == "SHIP"  # no as_of recorded, so new results bring it back
