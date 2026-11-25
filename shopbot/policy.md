@@ -32,6 +32,10 @@
 ## final_sale
 - Items marked final_sale (clearance) can't be returned, exchanged or refunded, unless they arrived damaged.
 
+## pricing
+- We don't price-match other stores and don't refund price drops after purchase, as a credit or otherwise.
+- The customer may return an unused item within the return window and buy it again at the new price.
+
 ## refunds_over_500
 - A refund over $500 must be approved by a human specialist. Don't create the return yourself: call
   escalate_to_human, and tell the customer a specialist will confirm by email within 24 hours.

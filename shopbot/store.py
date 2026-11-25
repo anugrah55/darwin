@@ -11,7 +11,7 @@ from pathlib import Path
 
 POLICY_PATH = Path(__file__).with_name("policy.md")
 POLICY_TOPICS = ("returns", "damaged_items", "late_delivery", "warranty", "cancellations", "final_sale",
-                 "refunds_over_500", "escalation")
+                 "pricing", "refunds_over_500", "escalation")
 
 
 def load_policy() -> dict[str, str]:
