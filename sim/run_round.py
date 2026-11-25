@@ -23,7 +23,7 @@ from pathlib import Path
 
 import httpx
 
-from .customer import CustomerState, next_message
+from .customer import GIVE_UP, CustomerState, next_message
 from .scenarios import Case, make_case
 
 
@@ -60,7 +60,11 @@ def run_chat(http: httpx.Client, case: Case, user_id: str) -> ChatOutcome:
             break
         message = next_message(case, data["reply"], state)
     resolved, why = case.check(calls, replies)
-    http.post(f"/chat/{sid}/end", json={"resolved": resolved}).raise_for_status()
+    if state.gave_up and not resolved:
+        why = f"customer gave up after {state.turn} messages; {why}"
+    # A customer who walks away says so, like a real one would; the rule's verdict stays in the sim log.
+    note = f"(customer left the chat) {GIVE_UP}" if state.gave_up and not resolved else None
+    http.post(f"/chat/{sid}/end", json={"resolved": resolved, "note": note}).raise_for_status()
     return ChatOutcome(user_id, case.scenario, s["generation"], s["variant"], resolved, escalated, why, len(replies),
                        [c["name"] for c in calls])
 

@@ -13,7 +13,9 @@ from .scenarios import Case
 
 ASKS_ORDER_ID = re.compile(r"order (number|id|#|no\b)|order confirmation|which order", re.I)
 ASKS_EMAIL = re.compile(r"e-?mail( address)?", re.I)
+ASKS_REASON = re.compile(r"\b(why|reason|what('s| is| went) wrong|what happened)\b", re.I)
 CLOSING = re.compile(r"anything else|something else|help with anything|have a (great|nice|good|lovely)", re.I)
+GIVE_UP = "Never mind, this is taking too long."
 
 
 @dataclass
@@ -21,16 +23,19 @@ class CustomerState:
     turn: int = 1  # the opening message is turn 1
     gave_order_id: bool = False
     gave_email: bool = False
+    gave_reason: bool = False
+    gave_up: bool = False  # left with a question from ShopBot still unanswered
     used: set[int] = field(default_factory=set)
 
 
 def next_message(case: Case, bot_reply: str, state: CustomerState) -> str | None:
     """What the customer says next, or None when they're done talking."""
-    if state.turn >= case.max_turns:
-        return None
     asks = "?" in bot_reply
     if not asks:
         return None  # ShopBot made a statement (an answer or a refusal): the customer leaves
+    if state.turn >= case.max_turns:
+        state.gave_up = not CLOSING.search(bot_reply)
+        return None
     reply = _answer(case, bot_reply, state)
     if reply is not None:
         state.turn += 1
@@ -38,6 +43,9 @@ def next_message(case: Case, bot_reply: str, state: CustomerState) -> str | None
 
 
 def _answer(case: Case, text: str, state: CustomerState) -> str | None:
+    if ASKS_REASON.search(text) and not state.gave_reason and not ASKS_ORDER_ID.search(text):
+        state.gave_reason = True
+        return case.reason
     if ASKS_ORDER_ID.search(text) and not state.gave_order_id:
         state.gave_order_id = True
         if case.knows_order_id and case.order_id:

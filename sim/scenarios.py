@@ -40,7 +40,9 @@ class Case:
     knows_order_id: bool = True
     preference: str = "Yes, please go ahead."  # what they say when offered a choice
     replies: list[tuple[str, str]] = field(default_factory=list)  # (regex on ShopBot's reply, customer answer)
-    max_turns: int = 4
+    reason: str = "I just changed my mind."  # what they say when asked why
+    max_turns: int = 4  # patience: how many messages they'll send before giving up
+    min_turns: int = 2
     check: Callable[[list[dict], list[str]], tuple[bool, str]] = lambda calls, replies: (False, "no rule")
     facts: dict = field(default_factory=dict)
 
@@ -237,6 +239,7 @@ def damaged_item(f: Factory) -> Case:
         return False, "no replacement created"
 
     return Case("damaged_item", name, email, [o], opening, o["order_id"], preference="A replacement, please.",
+                reason="It arrived broken.",
                 replies=[(r"photo|picture|image", "I can't take photos right now, but it's clearly broken. Can you just send a new one?")],
                 check=check)
 
@@ -308,6 +311,7 @@ def warranty_defect(f: Factory) -> Case:
         return False, f"turned down a warranty claim on day {ago}"
 
     return Case("warranty_defect", name, email, [o], opening, o["order_id"], preference="A replacement would be great.",
+                reason="It stopped working. It won't turn on at all.",
                 check=check, facts={"days": ago})
 
 
@@ -351,21 +355,149 @@ def cancel_shipped(f: Factory) -> Case:
     return Case("cancel_shipped", name, email, [o], opening, o["order_id"], preference="Okay, thanks.", check=check)
 
 
-SCENARIOS: dict[str, Callable[[Factory], Case]] = {
-    "standard_refund": standard_refund,
-    "late_window_return": late_window_return,
-    "expired_return": expired_return,
-    "missing_order_id": missing_order_id,
-    "two_requests": two_requests,
-    "damaged_item": damaged_item,
-    "angry_late": angry_late,
-    "high_value_refund": high_value_refund,
-    "warranty_defect": warranty_defect,
-    "final_sale_return": final_sale_return,
-    "cancel_shipped": cancel_shipped,
+def wismo_late(f: Factory) -> Case:
+    """"Where is my order?" — the most common support contact. Late orders earn a credit nobody asks for."""
+    name, email = f.person()
+    late = f.rng.choice([6, 7, 8, 9, 11, 13])
+    o = f.in_transit(email, name, status="shipped", days_late=late, items=[f.item()])
+    credit = 10 if late <= 10 else 25
+    opening = f.pick(
+        f"Hi, where is my order {o['order_id']}? It still hasn't arrived.",
+        f"any update on {o['order_id']}? it was meant to be here a while ago",
+        f"Hello, my order {o['order_id']} hasn't shown up yet. Can you check?",
+    )
+
+    def check(calls, replies):
+        if _calls(calls, "escalate_to_human"):
+            return False, "escalated a delivery question"
+        credits = _calls(calls, "issue_credit", order_id=o["order_id"])
+        if not credits:
+            return False, f"no late-delivery credit (policy: ${credit} at {late} days late)"
+        if abs(float(credits[-1]["input"].get("amount_usd", 0)) - credit) > 0.01:
+            return False, f"wrong credit amount (policy: ${credit})"
+        if not _said(replies, re.escape(o["tracking_number"])):
+            return False, "didn't share the tracking number"
+        return True, f"tracking shared and ${credit} credit issued"
+
+    return Case("wismo_late", name, email, [o], opening, o["order_id"], preference="Yes, please.", check=check,
+                facts={"days_late": late, "credit": credit})
+
+
+def slightly_late_wants_credit(f: Factory) -> Case:
+    name, email = f.person()
+    late = f.rng.randint(2, 5)
+    o = f.in_transit(email, name, status="shipped", days_late=late, items=[f.item()])
+    opening = f.pick(
+        f"My order {o['order_id']} is late. I think I deserve some compensation for this.",
+        f"order {o['order_id']} is {late} days late. can I get a discount or something for the trouble?",
+    )
+
+    def check(calls, replies):
+        if _calls(calls, "issue_credit"):
+            return False, f"gave a credit at {late} days late (policy: none under 6 days)"
+        if _calls(calls, "escalate_to_human"):
+            return False, "escalated a delivery question"
+        if _said(replies, re.escape(o["tracking_number"])):
+            return True, "apologised, no credit, tracking shared"
+        return False, "didn't share the tracking number"
+
+    return Case("slightly_late_wants_credit", name, email, [o], opening, o["order_id"], preference="Okay.",
+                replies=[(r"(can't|cannot|unable|not able|don't|do not).{0,60}(credit|compensat|discount)", "That's disappointing, but okay.")],
+                check=check, facts={"days_late": late})
+
+
+def damaged_final_sale(f: Factory) -> Case:
+    name, email = f.person()
+    o = f.delivered(email, name, ago=f.rng.randint(1, 9), items=[f.item(f.rng.choice(["apparel", "home"]), final_sale=True)])
+    item = o["items"][0]["name"].lower().replace(" (final sale)", "")
+    opening = f.pick(
+        f"The {item} from order {o['order_id']} arrived torn. I know it was clearance, but it's damaged. Can I get a replacement?",
+        f"order {o['order_id']} - the {item} came ripped. it was on clearance but this isn't ok. replacement please",
+    )
+
+    def check(calls, replies):
+        if _calls(calls, "create_return", order_id=o["order_id"], resolution="replacement"):
+            return True, "replaced a damaged final-sale item"
+        if _calls(calls, "escalate_to_human"):
+            return False, "escalated a damaged item"
+        if _said(replies, r"photo|picture|image"):
+            return False, "asked for photos"
+        return False, "refused a damaged final-sale item (policy: damaged items are covered)"
+
+    return Case("damaged_final_sale", name, email, [o], opening, o["order_id"], preference="A replacement, please.",
+                reason="It arrived torn.", check=check)
+
+
+def price_drop(f: Factory) -> Case:
+    name, email = f.person()
+    o = f.delivered(email, name, ago=f.rng.randint(3, 20), items=[f.item()])
+    item, price = o["items"][0]["name"].lower(), o["items"][0]["price"]
+    sale = round(price * 0.7)
+    opening = f.pick(
+        f"I bought the {item} (order {o['order_id']}) for ${price:.0f} and now it's on sale for ${sale}. Can you refund the difference?",
+        f"saw the {item} is ${sale} now, I paid ${price:.0f} last week (order {o['order_id']}). price adjustment pls?",
+    )
+
+    def check(calls, replies):
+        if _calls(calls, "issue_credit") or _calls(calls, "create_return"):
+            return False, "gave a price adjustment (policy: no refunds for price drops)"
+        if _calls(calls, "escalate_to_human"):
+            return False, "escalated a pricing question"
+        if _said(replies, r"price"):
+            return True, "declined and explained the pricing policy"
+        return False, "declined without explaining"
+
+    return Case("price_drop", name, email, [o], opening, o["order_id"], preference="No, never mind then.",
+                replies=[(r"return.{0,80}(buy|purchase|order)", "No, I don't want to go through returning it. Never mind then.")],
+                check=check)
+
+
+def wrong_order_id(f: Factory) -> Case:
+    name, email = f.person()
+    o = f.delivered(email, name, ago=f.rng.randint(3, 20), items=[f.item()])
+    real = o["order_id"]
+    typo = real[0] + real[1:-1] + str((int(real[-1]) + f.rng.randint(1, 8)) % 10)
+    item = o["items"][0]["name"].lower()
+    opening = f.pick(
+        f"Hi, I'd like to return the {item} from order {typo} for a refund. My email is {email}.",
+        f"return for order {typo} please ({item}), refund to my card. account email {email}",
+    )
+
+    def check(calls, replies):
+        if _calls(calls, "create_return", order_id=real, resolution="refund"):
+            return True, "found the real order by email and refunded"
+        if _calls(calls, "escalate_to_human"):
+            return False, "escalated instead of looking up the email"
+        return False, "never found the order (the customer's order number had a typo)"
+
+    return Case("wrong_order_id", name, email, [o], opening, typo, preference="A refund, please.", check=check, min_turns=3)
+
+
+# Weights follow a realistic support mix: "where is my order?" dominates real inboxes.
+SCENARIOS: dict[str, tuple[Callable[[Factory], Case], int]] = {
+    "wismo_late": (wismo_late, 3),
+    "slightly_late_wants_credit": (slightly_late_wants_credit, 2),
+    "angry_late": (angry_late, 2),
+    "standard_refund": (standard_refund, 2),
+    "late_window_return": (late_window_return, 1),
+    "expired_return": (expired_return, 1),
+    "missing_order_id": (missing_order_id, 1),
+    "wrong_order_id": (wrong_order_id, 1),
+    "two_requests": (two_requests, 1),
+    "damaged_item": (damaged_item, 1),
+    "damaged_final_sale": (damaged_final_sale, 1),
+    "high_value_refund": (high_value_refund, 1),
+    "warranty_defect": (warranty_defect, 1),
+    "final_sale_return": (final_sale_return, 1),
+    "price_drop": (price_drop, 1),
+    "cancel_shipped": (cancel_shipped, 1),
 }
+PATIENCE = ([2, 3, 4], [0.35, 0.40, 0.25])  # messages a customer sends before giving up
 
 
 def make_case(rng: random.Random, today: date, scenario: str | None = None) -> Case:
-    name = scenario or rng.choice(list(SCENARIOS))
-    return SCENARIOS[name](Factory(rng, today))
+    names = list(SCENARIOS)
+    name = scenario or rng.choices(names, weights=[SCENARIOS[n][1] for n in names])[0]
+    case = SCENARIOS[name][0](Factory(rng, today))
+    case.max_turns = max(case.min_turns, rng.choices(*PATIENCE)[0])
+    return case

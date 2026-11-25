@@ -97,3 +97,50 @@ def test_customer_stops_after_max_turns():
     c = case("standard_refund")
     state = CustomerState(turn=c.max_turns)
     assert next_message(c, "Anything else?", state) is None
+
+
+def test_wismo_needs_tracking_and_the_unrequested_credit():
+    c = case("wismo_late")
+    o, amount = c.orders[0], c.facts["credit"]
+    assert c.check([call("issue_credit", order_id=o["order_id"], amount_usd=amount, reason="late")], [f"Tracking: {o['tracking_number']}"])[0]
+    assert not c.check([], [f"Tracking: {o['tracking_number']}"])[0]
+
+
+def test_slightly_late_must_not_get_a_goodwill_credit():
+    c = case("slightly_late_wants_credit")
+    o = c.orders[0]
+    assert c.check([], [f"Sorry! It's on its way: {o['tracking_number']}"])[0]
+    assert not c.check([call("issue_credit", order_id=o["order_id"], amount_usd=5, reason="sorry")], [o["tracking_number"]])[0]
+
+
+def test_damaged_final_sale_is_still_covered():
+    c = case("damaged_final_sale")
+    assert c.check([call("create_return", order_id=c.order_id, reason="damaged", resolution="replacement")], [])[0]
+    assert not c.check([], ["Sorry, final-sale items can't be returned."])[0]
+
+
+def test_price_drop_declines_without_credit():
+    c = case("price_drop")
+    assert c.check([], ["We don't offer price adjustments after purchase."])[0]
+    assert not c.check([call("issue_credit", order_id=c.order_id, amount_usd=20, reason="price")], ["price"])[0]
+
+
+def test_wrong_order_id_needs_the_real_order():
+    c = case("wrong_order_id")
+    real = c.orders[0]["order_id"]
+    assert c.order_id != real
+    assert c.check([call("create_return", order_id=real, reason="changed_mind", resolution="refund")], [])[0]
+
+
+def test_customer_answers_why_and_gives_up_when_out_of_patience():
+    c = case("damaged_item")
+    c.max_turns = 2
+    state = CustomerState()
+    assert next_message(c, "Sorry about that! What happened to it?", state) == "It arrived broken."
+    assert next_message(c, "Would you like a refund or a replacement?", state) is None
+    assert state.gave_up
+
+
+def test_patience_is_randomised_but_respects_the_minimum():
+    turns = {make_case(random.Random(i), TODAY, "wrong_order_id").max_turns for i in range(40)}
+    assert min(turns) >= 3 and len({make_case(random.Random(i), TODAY).max_turns for i in range(40)}) > 1
