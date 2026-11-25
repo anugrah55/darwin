@@ -93,10 +93,32 @@ class Steward:
         return f"gen{max(numbers, default=0) + 1}"
 
     def _feature(self) -> dict:
+        """The feature's id plus this environment's live value and variant weights.
+
+        `flagsmith feature get` reports project-level defaults (the value the flag was created with);
+        `flagsmith flag get` reports what this environment actually serves.
+        """
         feature = self.admin.feature(self.flag)
         if feature is None:
             raise StewardError(f"flag {self.flag} doesn't exist in Flagsmith — run `darwin init`.")
-        return feature
+        flag = self.admin.flag(self.flag) or {}
+        merged = dict(feature)
+        merged["default_value"] = flag.get("value", feature.get("default_value"))
+        if flag.get("variants") is not None:
+            merged["variants"] = flag["variants"]
+        return merged
+
+    def _same_plan(self, card: dict, plan: list[Command]) -> None:
+        """Approval runs exactly the commands the human saw. If Flagsmith changed since the card was made, stop."""
+        if [c["summary"] for c in card["commands"]] == [c.summary for c in plan]:
+            return
+        with self.store.transaction() as st:
+            if st["pending"] and st["pending"]["id"] == card["id"]:
+                st["pending"]["commands"] = [c.to_dict() for c in plan]
+                st["pending"]["id"] = uuid.uuid4().hex[:8]
+                log_event(st, "card-updated", "Flagsmith changed since the card was made; its commands were updated for review")
+        raise StewardError("Flagsmith changed since this card was made, so the commands changed. "
+                           "Review the updated card and approve again.")
 
     def _stats(self, state: dict, name: str) -> dict:
         # A genome never changes, so every chat it served — as challenger or champion — is evidence about it.
@@ -233,6 +255,7 @@ class Steward:
         feature = self._feature()
         if not any(v["key"] == challenger.name for v in feature.get("variants") or []):
             plan = self._launch_plan(champion, challenger, card["goal"], hypothesis, feature=feature)
+            self._same_plan(card, plan)
             for cmd in plan[:-2]:  # set default (if needed) + add variant
                 self.admin.run(cmd)
             feature = self._feature()
@@ -329,7 +352,9 @@ class Steward:
         if not exp or exp["id"] != card["experiment_id"]:
             raise StewardError("that experiment is no longer running")
         challenger = self._genome(s, exp["challenger"])
-        for cmd in self._decision_plan(exp, card["verdict"], challenger):
+        plan = self._decision_plan(exp, card["verdict"], challenger)
+        self._same_plan(card, plan)
+        for cmd in plan:
             self.admin.run(cmd)
         try:
             self.admin.run(self.admin.cmd_refresh_results(exp["id"]))  # freeze the final numbers

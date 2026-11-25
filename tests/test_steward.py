@@ -199,3 +199,32 @@ def test_refresh_wait_follows_flagsmiths_five_minute_rule():
     assert refresh_wait_seconds(None) == 0
     assert refresh_wait_seconds("2026-11-25T14:18:00Z", now=1795616280 + 60) in range(239, 242)  # 14:18 UTC + 1 min
     assert refresh_wait_seconds("2026-11-25T14:18:00Z", now=1795616280 + 400) == 0
+
+
+
+def test_second_launch_doesnt_reset_a_default_that_ship_already_set(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp1 = steward.approve("a")["experiment_id"]
+    fs.payloads[exp1] = payload(steward.store.read()["metrics"], "gen2")
+    steward.check()
+    steward.approve("a")
+    chats(tmp, "gen2")
+    card = steward.propose()
+    assert not any("default value" in c["summary"] for c in card["commands"])  # ship already made gen2 the default
+
+
+def test_approval_refuses_when_flagsmith_changed_since_the_card(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    card = steward.propose()
+    fs.features["shopbot_brain"]["default_value"] = "someone edited the flag in the dashboard"
+    with pytest.raises(StewardError):
+        steward.approve("a", card_id=card["id"])
+    updated = steward.store.read()["pending"]
+    assert updated["id"] != card["id"] and any("default value" in c["summary"] for c in updated["commands"])
+    steward.approve("a", card_id=updated["id"])
+    assert steward.store.read()["experiment"]

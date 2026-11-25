@@ -22,11 +22,22 @@ class FakeFlagsmith(FlagsmithAdmin):
 
     # reads
     def feature(self, name):
+        """Like `flagsmith feature get`: project-level — the value the feature was created with."""
         f = self.features.get(name)
-        return json.loads(json.dumps(f)) if f else None
+        if not f:
+            return None
+        out = json.loads(json.dumps(f))
+        out["default_value"] = f["initial_value"]
+        return out
 
     def flag(self, name):
-        return self.feature(name)
+        """Like `flagsmith flag get`: what this environment serves."""
+        f = self.features.get(name)
+        if not f:
+            return None
+        out = {k: v for k, v in json.loads(json.dumps(f)).items() if k not in ("default_value", "initial_value")}
+        out["value"] = f["default_value"]
+        return out
 
     def metrics(self):
         return list(self.metric_list)
@@ -49,8 +60,9 @@ class FakeFlagsmith(FlagsmithAdmin):
         self.log.append(cmd)
         a = cmd.args
         if a[:2] == ["feature", "create"]:
+            value = a[a.index("--value") + 1]
             self.features[a[2]] = {"id": next(self._ids), "name": a[2], "type": "standard", "enabled": True,
-                                   "default_value": a[a.index("--value") + 1], "variants": []}
+                                   "default_value": value, "initial_value": value, "variants": []}
             return self.features[a[2]]
         if a[:3] == ["feature", "variant", "add"]:
             f = self.features[a[3]]
