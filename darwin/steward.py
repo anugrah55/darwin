@@ -991,23 +991,49 @@ class Steward:
             self._settle_decision(exp, STOP, actor, reason, [], s)
         return {"stopped": exp["id"]}
 
-    def rollback(self, generation: str, actor: str) -> dict:
-        s = self.store.read()
-        if s["experiment"]:
+    @staticmethod
+    def _rollback_allowed(state: dict, generation: str) -> None:
+        if state["experiment"]:
             raise StewardError("an experiment is running — stop or decide it first")
-        if generation not in s["generations"]:
+        if generation not in state["generations"]:
             raise StewardError(f"unknown generation {generation}")
-        genome = self._genome(s, generation)
+
+    def _rollback_commands(self, state: dict, generation: str) -> list[Command]:
+        genome = self._genome(state, generation)
         keys = [v["key"] for v in self._feature().get("variants") or []]
-        self.admin.run(self.admin.cmd_set_default(self.flag, genome.to_flag_value(), genome.name, keys))
-        with self.store.transaction() as st:
-            old = st["champion"]
-            if old and old != generation:
-                st["generations"][old]["status"] = "retired"
-            st["generations"][generation].update(status="champion", became_champion_at=_now())
-            st["champion"] = generation
-            log_event(st, "rollback", f"{actor} rolled {self.flag} back to {generation}", actor, generation=generation)
-        return {"champion": generation}
+        return [self.admin.cmd_set_default(self.flag, genome.to_flag_value(), genome.name, keys)]
+
+    def rollback_plan(self, generation: str) -> list[dict]:
+        """The commands `darwin rollback` would run, for the human to read first."""
+        s = self.store.read()
+        self._rollback_allowed(s, generation)
+        return [c.to_dict() for c in self._rollback_commands(s, generation)]
+
+    def rollback(self, generation: str, actor: str, expected: list[dict] | None = None) -> dict:
+        """Make an earlier generation the champion again: one flag update, no redeploy.
+
+        `expected` is the plan the human was shown (see rollback_plan); if Flagsmith changed since, nothing runs.
+        """
+        def prepare(st: dict) -> str:
+            self._rollback_allowed(st, generation)
+            return f"Rolling {self.flag} back to {generation} for {actor}"
+
+        with self._claim(prepare):
+            s = self.store.read()
+            plan = self._rollback_commands(s, generation)
+            if expected is not None and expected != [c.to_dict() for c in plan]:
+                raise StewardError("Flagsmith changed since the command was shown, so nothing ran. Run `darwin rollback` again.")
+            for cmd in plan:
+                self.admin.run(cmd)
+            with self.store.transaction() as st:
+                old = st["champion"]
+                if old and old != generation:
+                    st["generations"][old]["status"] = "retired"
+                st["generations"][generation].update(status="champion", became_champion_at=_now())
+                st["champion"] = generation
+                log_event(st, "rollback", f"{actor} rolled {self.flag} back to {generation}", actor, generation=generation)
+        self.notebook.rolled_back(generation, old, actor)
+        return {"champion": generation, "previous": old}
 
     def unlock(self, actor: str) -> dict | None:
         """Clear `busy` by hand. Darwin clears it itself when its process exits or after 15 minutes."""

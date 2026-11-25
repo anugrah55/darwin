@@ -259,13 +259,35 @@ def cmd_watch(args) -> None:
         time.sleep(args.every)
 
 
+def confirm_commands(title: str, commands: list[dict], word: str, args) -> None:
+    """Show the exact commands, then ask the human to type `word` (unless --yes)."""
+    print(bold(f"{title} runs {len(commands)} Flagsmith CLI command{'s' if len(commands) != 1 else ''}:"))
+    for i, cmd in enumerate(commands, 1):
+        print(f"  {i}. {cmd['summary']}")
+        print(cyan(f"     $ {cmd['command']}"))
+    if not args.yes:
+        answer = input(bold(f"\nType '{word}' to run {'them' if len(commands) != 1 else 'it'} as {actor_of(args)}: "))
+        if answer.strip().lower() != word:
+            sys.exit("Not confirmed. Nothing changed.")
+
+
 def cmd_stop(args) -> None:
-    out = steward().abort(actor_of(args), args.reason)
-    print(f"Stopped experiment #{out['stopped']}. Everyone gets the champion.")
+    s = steward()
+    plan = s.stop_plan(actor_of(args), args.reason)
+    if plan:
+        confirm_commands("Stopping the experiment", plan, "stop", args)
+    out = s.abort(actor_of(args), args.reason, expected=plan)
+    if out.get("note"):
+        print(out["note"])
+    else:
+        print(f"Stopped experiment #{out['stopped']}. Everyone gets the champion.")
 
 
 def cmd_rollback(args) -> None:
-    out = steward().rollback(args.generation, actor_of(args))
+    s = steward()
+    plan = s.rollback_plan(args.generation)
+    confirm_commands(f"Rolling back to {args.generation}", plan, "rollback", args)
+    out = s.rollback(args.generation, actor_of(args), expected=plan)
     print(f"{out['champion']} is the champion again. Everyone gets it now — no redeploy.")
 
 
@@ -347,8 +369,10 @@ def main(argv: list[str] | None = None) -> None:
     rc.add_argument("--yes", action="store_true", help="don't ask to type 'approve' before finishing missing steps")
     stp = add("stop", cmd_stop, "emergency stop: end the experiment, keep the champion")
     stp.add_argument("--reason", default="")
+    stp.add_argument("--yes", action="store_true", help="don't ask to type 'stop'")
     rb = add("rollback", cmd_rollback, "make an earlier generation the champion again")
     rb.add_argument("generation")
+    rb.add_argument("--yes", action="store_true", help="don't ask to type 'rollback'")
     add("unlock", cmd_unlock, "clear a stuck 'busy' flag (Darwin also clears it when its process exits or after 15 minutes)")
     add("spend", cmd_spend, "Claude API spend against the budget")
     add("lab", cmd_lab, "serve the Darwin Lab dashboard")

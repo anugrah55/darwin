@@ -692,3 +692,44 @@ def test_round_ends_with_a_check_while_an_experiment_runs(env, monkeypatch, caps
     monkeypatch.setattr(cli, "steward", lambda: steward)
     cli.main(["round", "--chats", "1"])
     assert "SHIP" in capsys.readouterr().out
+
+
+def test_cli_stop_shows_the_commands_and_asks_first(env, monkeypatch, capsys):
+    import darwin.cli as cli
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    monkeypatch.setattr(cli, "steward", lambda: steward)
+    monkeypatch.setattr("builtins.input", lambda prompt: "no")
+    with pytest.raises(SystemExit):
+        cli.main(["stop", "--reason", "too many escalations", "--as", "anugrah"])
+    assert fs.exps[exp_id]["status"] == "running"
+    out = capsys.readouterr().out
+    assert "Complete the experiment and keep the champion" in out and "Stopped in Darwin by anugrah" in out
+    monkeypatch.setattr("builtins.input", lambda prompt: "stop")
+    cli.main(["stop", "--reason", "too many escalations", "--as", "anugrah"])
+    assert fs.exps[exp_id]["rollout_decision"] == "control" and steward.store.read()["experiment"] is None
+
+
+def test_rollback_shows_its_command_asks_and_writes_the_notebook(env, monkeypatch, capsys):
+    import darwin.cli as cli
+    steward, fs, tmp = env
+    ship_gen2(steward, fs, tmp)
+    monkeypatch.setattr(cli, "steward", lambda: steward)
+    cli.main(["rollback", "gen1", "--yes", "--as", "anugrah"])
+    assert "Make gen1 the flag's default value" in capsys.readouterr().out
+    assert json.loads(fs.features["shopbot_brain"]["default_value"])["name"] == "gen1"
+    assert steward.store.read()["champion"] == "gen1"
+    assert "gen1 — champion again" in (tmp / "LAB_NOTEBOOK.md").read_text()
+
+
+def test_rollback_refuses_when_flagsmith_changed_since_the_command_was_shown(env):
+    steward, fs, tmp = env
+    ship_gen2(steward, fs, tmp)
+    shown = steward.rollback_plan("gen1")
+    fs.features["shopbot_brain"]["variants"].append({"id": 98, "key": "hotfix", "value": "{}", "weight": 0.0})
+    with pytest.raises(StewardError, match="changed"):
+        steward.rollback("gen1", "a", expected=shown)
+    assert steward.store.read()["champion"] == "gen2"
