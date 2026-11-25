@@ -191,3 +191,11 @@ def test_abort_and_rollback(env):
     assert steward.store.read()["generations"]["gen2"]["status"] == "stopped"
     steward.rollback("gen1", "a")
     assert json.loads(fs.features["shopbot_brain"]["default_value"])["name"] == "gen1"
+
+
+def test_refresh_wait_follows_flagsmiths_five_minute_rule():
+    from darwin.steward import refresh_wait_seconds
+
+    assert refresh_wait_seconds(None) == 0
+    assert refresh_wait_seconds("2026-11-25T14:18:00Z", now=1795616280 + 60) in range(239, 242)  # 14:18 UTC + 1 min
+    assert refresh_wait_seconds("2026-11-25T14:18:00Z", now=1795616280 + 400) == 0

@@ -47,6 +47,19 @@ class StewardError(RuntimeError):
     pass
 
 
+REFRESH_INTERVAL = 300  # Flagsmith's RESULTS_REFRESH_MIN_INTERVAL
+
+
+def refresh_wait_seconds(refresh_requested_at: str | None, now: float | None = None) -> int:
+    """Seconds until Flagsmith will accept another results refresh for this experiment."""
+    if not refresh_requested_at:
+        return 0
+    from datetime import datetime
+
+    requested = datetime.fromisoformat(refresh_requested_at.replace("Z", "+00:00")).timestamp()
+    return max(0, int(requested + REFRESH_INTERVAL - (now or time.time())) + 1)
+
+
 def _now() -> float:
     return time.time()
 
@@ -258,7 +271,12 @@ class Steward:
         if not exp:
             return {"running": False}
         note = None
-        before = (self.admin.results(exp["id"]) or {}).get("as_of")
+        current = self.admin.results(exp["id"]) or {}
+        before = current.get("as_of")
+        wait = refresh_wait_seconds(current.get("refresh_requested_at"))
+        if refresh and wait > 0:
+            refresh = False
+            note = f"Flagsmith recomputes results at most every 5 minutes; next refresh in {wait // 60}m {wait % 60:02d}s."
         if refresh:
             try:
                 self.admin.run(self.admin.cmd_refresh_results(exp["id"]))
