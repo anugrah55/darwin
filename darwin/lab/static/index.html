@@ -29,7 +29,7 @@
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--panel);
           border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; white-space: nowrap; }
   .chip b { color: var(--ink); font-weight: 600; }
-  .chip input { border: 0; background: transparent; color: var(--ink); font: inherit; width: 90px; outline: none; }
+  .chip input { border: 0; background: transparent; color: var(--ink); font: inherit; width: 130px; outline: none; }
   .meter { width: 70px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .meter i { display: block; height: 100%; background: var(--accent); }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 16px; min-width: 0; }
@@ -133,7 +133,8 @@
       <h1>Darwin</h1>
       <p>Your agent evolves. Flagsmith decides who survives. You approve every change.</p>
     </div>
-    <div class="top" id="top"></div>
+    <div class="top"><div class="top" id="chips"></div>
+      <label class="chip">approver <input id="approver" aria-label="Your name, recorded with each approval"></label></div>
   </header>
 
   <section class="panel">
@@ -178,8 +179,31 @@ const pct = (x, d = 0) => (x == null ? "–" : (x * 100).toFixed(d) + "%");
 const signed = (x) => (x == null ? "–" : (x >= 0 ? "+" : "") + (x * 100).toFixed(0) + "%");
 const ago = (ts) => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const clock = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-let S = null, confirmFor = null, noteOpen = false, lastCardId = null, seenToasts = 0;
-const actor = () => { try { return localStorage.getItem("darwin-approver") || "you"; } catch { return "you"; } };
+const prob = (p) => (p < 0.001 ? "<0.1" : p > 0.999 ? ">99.9" : p < 0.01 || p > 0.99 ? (p * 100).toFixed(1) : (p * 100).toFixed(0)) + "%";
+
+let S = null, seenToasts = 0;
+// UI state that must survive the 2.5 s refresh: armed buttons, the note being typed, the chosen goal.
+const ui = { confirmFor: null, stopArmedFor: null, stopTimer: null, noteOpen: false, noteText: "", focusNote: false, goal: "quality" };
+const painted = {}; // panel id -> the key it was last painted with
+
+function savedApprover() { try { return localStorage.getItem("darwin-approver") || ""; } catch { return ""; } }
+const actor = () => savedApprover() || (S && S.default_approver) || "you";
+
+// Repaint a panel only when its data changed. Never replace an input, select or textarea the user is in;
+// keep open <details> (prompt diff, JSON bodies, conversations) and scroll positions across repaints.
+function paint(id, key, html, bind) {
+  const el = $(id);
+  if (!el || painted[id] === key) return;
+  const active = document.activeElement;
+  if (active && el.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) return;
+  const open = new Set([...el.querySelectorAll("details[data-key]")].filter((d) => d.open).map((d) => d.dataset.key));
+  const scrolls = [...el.querySelectorAll("[data-scroll]")].map((x) => [x.dataset.scroll, x.scrollTop]);
+  el.innerHTML = html;
+  el.querySelectorAll("details[data-key]").forEach((d) => { if (open.has(d.dataset.key)) d.open = true; });
+  scrolls.forEach(([k, top]) => { const x = el.querySelector(`[data-scroll="${k}"]`); if (x) x.scrollTop = top; });
+  painted[id] = key;
+  if (bind) bind(el);
+}
 
 async function post(path, body = {}) {
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: actor(), ...body }) });
@@ -193,19 +217,18 @@ function toast(kind, text) {
 
 function renderTop(s) {
   const sp = s.spend, used = sp.cap_usd ? Math.min(1, sp.spent_usd / sp.cap_usd) : 0;
-  $("top").innerHTML = `
+  paint("chips", JSON.stringify([s.flag, s.links, s.shopbot_url, sp.spent_usd, sp.cap_usd]), `
     <span class="chip">flag <b class="mono">${esc(s.flag)}</b></span>
     <a class="chip" href="${esc(s.links.flag)}" target="_blank" rel="noopener">Flagsmith ↗</a>
     <a class="chip" href="${esc(s.shopbot_url)}" target="_blank" rel="noopener">ShopBot chat ↗</a>
-    <span class="chip" title="Claude API spend against DARWIN_BUDGET_USD">Claude <b>$${sp.spent_usd.toFixed(3)}</b> / $${sp.cap_usd.toFixed(2)} <span class="meter"><i style="width:${used * 100}%"></i></span></span>
-    <label class="chip">approver <input id="approver" value="${esc(actor())}" aria-label="Your name, recorded with each approval"></label>`;
-  $("approver").onchange = (e) => { try { localStorage.setItem("darwin-approver", e.target.value || "you"); } catch {} };
+    <span class="chip" title="Claude API spend against DARWIN_BUDGET_USD">Claude <b>$${sp.spent_usd.toFixed(3)}</b> / $${sp.cap_usd.toFixed(2)} <span class="meter"><i style="width:${used * 100}%"></i></span></span>`);
+  const input = $("approver");
+  if (document.activeElement !== input && !input.dataset.touched && input.value !== actor()) input.value = actor();
 }
 
 function renderLineage(s) {
   const gens = s.lineage;
-  if (!gens.length) { $("lineage").innerHTML = `<div class="empty">Run <code>darwin init</code> to register gen1.</div>`; return; }
-  $("lineage").innerHTML = gens.map((g, i) => {
+  const html = !gens.length ? `<div class="empty">Run <code>darwin init</code> to register gen1.</div>` : gens.map((g, i) => {
     const st = g.stats || {};
     const res = g.result ? `<div class="small" style="margin-top:6px">${esc(g.result.headline)}</div>` : "";
     return `${i ? '<div class="arrow">→</div>' : ""}<div class="gen ${g.status}">
@@ -215,6 +238,7 @@ function renderLineage(s) {
       <div class="kv"><span>${st.chats || 0} chats</span><span>${esc(g.model.replace("claude-", ""))} · ${esc(g.effort)}</span>${st.avg_cost_usd != null ? `<span>$${(st.avg_cost_usd * 1000).toFixed(2)} per 1k chats</span>` : ""}</div>${res}
     </div>`;
   }).join("");
+  paint("lineage", JSON.stringify(gens), html);
 }
 
 const METRIC_LABEL = { resolved: "Resolved by ShopBot", escalated: "Handed to a human", cost_microusd: "Cost per chat" };
@@ -224,7 +248,6 @@ function armValue(m, arm) {
 }
 const GUARD_COLOR = { ok: "var(--accent)", uncertain: "var(--amber)", breach: "var(--red)", no_data: "var(--faint)" };
 const GUARD_VERDICT = { ok: "within the margin", uncertain: "not proven safe yet", breach: "worse than the margin", no_data: "no data yet" };
-const prob = (p) => (p < 0.001 ? "<0.1" : p > 0.999 ? ">99.9" : p < 0.01 || p > 0.99 ? (p * 100).toFixed(1) : (p * 100).toFixed(0)) + "%";
 function guardNote(guard) {
   if (!guard || guard.p_bad == null) return "";
   const counts = guard.source === "counts" ? " · from raw counts: Flagsmith shows no result until each arm has 5 conversions" : "";
@@ -241,36 +264,37 @@ function ciBar(inf, lowerBetter, guard) {
   const x = (v) => 50 + (v / span) * 50;
   const good = lowerBetter ? inf.lift < 0 : inf.lift > 0;
   const color = guard ? GUARD_COLOR[guard.state] : inf.chance_to_win >= 0.95 ? "var(--accent)" : inf.chance_to_win <= 0.05 ? "var(--red)" : "var(--amber)";
-  if (guard) {
-    return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
+  const bar = `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
       <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
-      <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>
-    <div class="row small" style="justify-content:space-between"><span>change <b>${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
+      <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>`;
+  if (guard) {
+    return `${bar}<div class="row small" style="justify-content:space-between"><span>change <b>${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
     <span style="color:${color};font-weight:600">${GUARD_VERDICT[guard.state]}</span></div>${guardNote(guard)}`;
   }
-  return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
-      <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
-      <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>
-    <div class="row small" style="justify-content:space-between"><span>lift <b class="${good ? "good" : "bad"}">${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
+  return `${bar}<div class="row small" style="justify-content:space-between"><span>lift <b class="${good ? "good" : "bad"}">${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
     <span>chance to win <span class="ctw" style="color:${color}">${pct(inf.chance_to_win, 1)}</span></span></div>`;
 }
 
 function renderExperiment(s) {
-  const e = s.experiment, el = $("experiment");
+  const e = s.experiment;
   if (!e) {
     const busy = s.busy ? `<p><span class="spinner"></span> ${esc(s.busy.what)}…</p>` : "";
     const can = !s.pending && !s.busy && !s.working;
-    el.innerHTML = `<h2>Experiment</h2><div class="empty">
+    const option = (v, label) => `<option value="${v}" ${ui.goal === v ? "selected" : ""}>${label}</option>`;
+    paint("experiment", JSON.stringify(["idle", s.champion, can, s.busy, ui.goal]), `<h2>Experiment</h2><div class="empty">
       <p>No experiment running. ${s.champion ? `<b>${esc(s.champion)}</b> serves everyone.` : ""}</p>${busy}
       <div class="row" style="justify-content:center">
-        <select id="goal"><option value="quality">Goal: resolve more chats</option><option value="cost">Goal: cut cost per chat</option></select>
+        <select id="goal" aria-label="What the challenger should improve">${option("quality", "Goal: resolve more chats")}${option("cost", "Goal: cut cost per chat")}</select>
         <button class="primary" id="evolve" ${can ? "" : "disabled"}>Ask the Coach for a challenger</button>
       </div>
-      <p class="small faint" style="margin-top:12px">The Coach reads ${esc(s.champion || "the champion")}'s failed conversations and proposes a new genome. Nothing changes until you approve.</p></div>`;
-    const b = $("evolve"); if (b) b.onclick = () => post("/api/evolve", { goal: $("goal").value });
+      <p class="small faint" style="margin-top:12px">The Coach reads ${esc(s.champion || "the champion")}'s failed conversations and proposes a new genome. Nothing changes until you approve.</p></div>`,
+    () => {
+      $("goal").onchange = (ev) => { ui.goal = ev.target.value; };
+      $("evolve").onclick = () => { ui.goal = $("goal").value; post("/api/evolve", { goal: ui.goal }); };
+    });
     return;
   }
-  const r = e.readout, d = e.decision;
+  const r = e.readout, d = e.decision, armed = ui.stopArmedFor === e.id;
   const order = e.goal === "cost" ? ["cost_microusd", "resolved", "escalated"] : ["resolved", "escalated", "cost_microusd"];
   const metrics = r ? order.filter((k) => r.metrics[k]).map((k, i) => {
     const m = r.metrics[k], lower = m.direction === "down";
@@ -286,8 +310,9 @@ function renderExperiment(s) {
   }).join("") : `<div class="empty">Waiting for Flagsmith's first results…</div>`;
   const srm = r && r.srm_p_value != null ? `SRM p=${r.srm_p_value.toFixed(2)} ${r.srm_p_value < 0.001 ? '<b class="bad">split broken</b>' : '<span class="good">split healthy</span>'} <span class="faint">(${esc(r.srm_source)})</span>` : "SRM: not enough traffic yet";
   const exposed = r ? Object.entries(r.exposures).map(([k, v]) => `${esc(k === "control" ? e.champion : k)} ${v}`).join(" · ") : "";
-  el.innerHTML = `<div class="exp-head"><h3>Experiment #${e.id} · ${esc(e.champion)} vs ${esc(e.challenger)}</h3>
-      <span class="small muted">goal ${esc(e.goal)} · running ${ago(e.started_at)} · approved by ${esc(e.launched_by)}</span></div>
+  const planned = e.min_per_arm ? ` · decides at ${e.min_per_arm} chats per arm` : "";
+  paint("experiment", JSON.stringify(["running", e, s.working, armed, s.auto_check_seconds]), `<div class="exp-head"><h3>Experiment #${e.id} · ${esc(e.champion)} vs ${esc(e.challenger)}</h3>
+      <span class="small muted">goal ${esc(e.goal)} · running <span data-since="${e.started_at}">${ago(e.started_at)}</span> · approved by ${esc(e.launched_by)}${planned}</span></div>
     ${d ? `<div class="verdict"><span class="badge b-${d.verdict}">${esc(d.verdict.replace("_", " "))}</span><span>${esc(d.headline)}</span></div>` : ""}
     ${metrics}
     <div class="row small muted" style="justify-content:space-between;margin-top:8px">
@@ -295,38 +320,45 @@ function renderExperiment(s) {
       <span>${r && r.as_of ? `Flagsmith results as of ${clock(Date.parse(r.as_of) / 1000)}` : ""}${e.note ? ` · ${esc(e.note)}` : ""}</span></div>
     <div class="row" style="margin-top:12px">
       <button id="check" ${s.working ? "disabled" : ""}>Refresh results now</button>
-      <button class="danger" id="stop" ${s.working ? "disabled" : ""}>Stop experiment</button>
-      <span class="small faint">Darwin checks Flagsmith every ${Math.round(s.auto_check_seconds)}s; Flagsmith recomputes at most every 5 min.</span></div>`;
-  $("check").onclick = () => post("/api/check");
-  $("stop").onclick = () => { if ($("stop").dataset.armed) post("/api/stop", { reason: "stopped from the Lab" }); else { $("stop").dataset.armed = 1; $("stop").textContent = "Click again to stop and keep the champion"; } };
+      <button class="danger" id="stop" ${s.working ? "disabled" : ""}>${armed ? "Click again to stop and keep the champion" : "Stop experiment"}</button>
+      <span class="small faint">Darwin checks Flagsmith every ${Math.round(s.auto_check_seconds)}s; Flagsmith recomputes at most every 5 min.</span></div>`,
+  () => {
+    $("check").onclick = () => post("/api/check");
+    $("stop").onclick = () => {
+      clearTimeout(ui.stopTimer);
+      if (ui.stopArmedFor === e.id) { ui.stopArmedFor = null; post("/api/stop", { reason: "stopped from the Lab" }); }
+      else { ui.stopArmedFor = e.id; ui.stopTimer = setTimeout(() => { ui.stopArmedFor = null; render(S); }, 15000); }
+      render(S);
+    };
+  });
 }
 
 function diffHtml(lines) {
   return lines.slice(2).map((l) => `<div class="${l.startsWith("+") ? "add" : l.startsWith("-") ? "del" : l.startsWith("@@") ? "hunk" : ""}">${esc(l)}</div>`).join("");
 }
-function commandsHtml(cmds) {
+function commandsHtml(cmds, cardId) {
   return cmds.map((c, i) => `<div class="cmd"><div class="s">${i + 1}. ${esc(c.summary)}</div><code>$ ${esc(c.command)}</code>
-    ${c.body ? `<details><summary class="small muted">JSON body</summary><pre>${esc(c.body)}</pre></details>` : ""}</div>`).join("");
+    ${c.body ? `<details data-key="${esc(cardId)}-body-${i}"><summary class="small muted">JSON body</summary><pre>${esc(c.body)}</pre></details>` : ""}</div>`).join("");
 }
+const DECISION_TITLE = { SHIP: "Ship", KILL: "Kill", DISCARD: "Discard", STOP: "Stop" };
 
 function renderCard(s) {
-  const el = $("card"), c = s.pending;
-  if (noteOpen && c && c.id === lastCardId) return; // don't wipe a note being typed
-  lastCardId = c ? c.id : null;
+  const c = s.pending;
   if (!c) {
     const busy = s.busy ? `<p><span class="spinner"></span> ${esc(s.busy.what)}…</p>` : "";
-    el.innerHTML = `<h2>Waiting for you</h2><div class="empty">${busy || "Nothing needs your approval."}
-      <p class="small faint">Proposals and ship/kill recommendations appear here with their evidence and the exact Flagsmith commands they'll run.</p></div>`;
+    paint("card", JSON.stringify(["empty", s.busy]), `<h2>Waiting for you</h2><div class="empty">${busy || "Nothing needs your approval."}
+      <p class="small faint">Proposals and ship/kill recommendations appear here with their evidence and the exact Flagsmith commands they'll run.</p></div>`);
     return;
   }
-  const armed = confirmFor === c.id;
-  const n = c.commands.length;
+  if (ui.confirmFor && ui.confirmFor !== c.id) ui.confirmFor = null; // a replaced card is never pre-armed
+  const armed = ui.confirmFor === c.id, n = c.commands.length, waiting = s.working || !!s.busy;
   let body;
   if (c.kind === "launch") {
     const p = c.proposal, st = c.stats || {}, set = c.diff.settings;
     body = `<div class="card-title"><h3>Launch ${esc(c.challenger)}?</h3><span class="badge b-proposed">proposal</span></div>
       <div class="small muted">Challenger to ${esc(c.champion)} · goal: ${esc(c.goal_text)}</div>
       ${c.author && c.author !== "coach" ? `<div class="small warn" style="margin-top:6px">Written by ${esc(c.author)}, not the Coach. Same experiment, same guardrails.</div>` : ""}
+      ${c.based_on ? `<div class="small warn" style="margin-top:6px">The Coach revised ${esc(c.based_on)}'s prompt.</div>` : ""}
       ${c.review_note ? `<div class="small warn" style="margin-top:6px">Revised after your note: “${esc(c.review_note)}”</div>` : ""}
       ${p.patterns.length ? "" : `<div class="section small muted">No diagnosis: this challenger didn't come from the Coach.</div>`}
       <div class="section" style="${p.patterns.length ? "" : "display:none"}"><div class="label">What's going wrong — from ${c.chats_read} chats</div>
@@ -336,65 +368,79 @@ function renderCard(s) {
       <div class="section"><div class="label">Hypothesis</div>${esc(p.hypothesis)}<div class="small muted" style="margin-top:4px">Expected: ${esc(p.expected_effect)}</div></div>
       <div class="section"><div class="label">Changes</div><ul class="plain">${p.changes_summary.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
         ${Object.keys(set).length ? `<div class="small" style="margin-top:6px">${Object.entries(set).map(([k, v]) => `${esc(k)}: <b>${esc(v.from)}</b> → <b>${esc(v.to)}</b>`).join(" · ")}</div>` : ""}</div>
-      <div class="section"><details><summary class="label" style="cursor:pointer">Prompt diff <span class="good">+${c.diff.lines_added}</span> <span class="bad">−${c.diff.lines_removed}</span></summary>
-        <div class="diff mono">${diffHtml(c.diff.prompt_diff)}</div></details></div>
+      <div class="section"><details data-key="${esc(c.challenger)}-diff"><summary class="label" style="cursor:pointer">Prompt diff <span class="good">+${c.diff.lines_added}</span> <span class="bad">−${c.diff.lines_removed}</span></summary>
+        <div class="diff mono" data-scroll="diff">${diffHtml(c.diff.prompt_diff)}</div></details></div>
       ${c.plan ? `<div class="section"><div class="label">What decides it</div><ul class="plain small">${c.plan.rules.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
       ${c.cost && c.cost.text ? `<div class="section small ${c.cost.fits === false ? "bad" : "muted"}">${esc(c.cost.text)}${c.cost.fits === false ? " — over budget: approval will refuse" : ""}</div>` : ""}
       <div class="section small muted"><b>Risk:</b> ${esc(p.risks)} · Experiment metrics: ${esc(c.metrics.join(", "))} · Coach cost $${(c.coach_cost_usd || 0).toFixed(3)}</div>`;
   } else {
-    body = `<div class="card-title"><h3>${esc(c.verdict === "SHIP" ? `Ship ${c.challenger}?` : c.verdict === "KILL" ? `Kill ${c.challenger}?` : `Discard ${c.challenger}?`)}</h3>
+    const verb = DECISION_TITLE[c.verdict] || c.verdict;
+    body = `<div class="card-title"><h3>${c.finishing ? `Finish: ${esc(verb.toLowerCase())} ${esc(c.challenger)}?` : `${esc(verb)} ${esc(c.challenger)}?`}</h3>
         <span class="badge b-${c.verdict}">${esc(c.verdict)}</span></div>
       <div>${esc(c.headline)}</div>
-      <div class="section"><div class="label">Why — Flagsmith's numbers, Darwin's rules</div><ul class="plain">${c.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`;
+      ${c.reasons.length ? `<div class="section"><div class="label">Why — Flagsmith's numbers, Darwin's rules</div><ul class="plain">${c.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}`;
   }
-  el.innerHTML = `<h2>Waiting for you</h2>${body}
-    <div class="section"><div class="label">Approving runs ${n} Flagsmith CLI command${n > 1 ? "s" : ""}</div>${commandsHtml(c.commands)}</div>
-    <div class="actions">
-      ${noteOpen ? `<textarea id="note" placeholder="What should the Coach change?"></textarea>
-        <div class="row" style="margin-top:8px"><button class="primary" id="send-note">Ask the Coach to revise</button><button id="cancel-note">Cancel</button></div>` :
+  const actions = ui.noteOpen ? `<textarea id="note" placeholder="What should the Coach change?">${esc(ui.noteText)}</textarea>
+        <div class="row" style="margin-top:8px"><button class="primary" id="send-note" ${waiting ? "disabled" : ""}>Ask the Coach to revise</button><button id="cancel-note">Cancel</button></div>` :
       `<div class="row">
-        <button class="primary" id="approve" ${s.working || s.busy ? "disabled" : ""}>${armed ? `Yes — run ${n} command${n > 1 ? "s" : ""} as ${esc(actor())}` : c.kind === "launch" ? "Approve launch" : `Approve ${c.verdict.toLowerCase()}`}</button>
-        ${c.kind === "launch" ? `<button id="reject">Reject</button><button id="revise">Reject with a note</button>` : `<button id="reject">Keep running</button>`}
-        ${s.working || s.busy ? `<span class="spinner"></span>` : ""}</div>`}
-    </div>`;
-  if (noteOpen) {
-    $("note").focus();
-    $("send-note").onclick = () => { const t = $("note").value.trim(); if (!t) return; noteOpen = false; post("/api/reject", { note: t }); };
-    $("cancel-note").onclick = () => { noteOpen = false; render(S); };
-    return;
-  }
-  $("approve").onclick = () => { if (armed) { confirmFor = null; post("/api/approve", { card_id: c.id }); } else { confirmFor = c.id; render(S); } };
-  $("reject").onclick = () => post("/api/reject");
-  const rv = $("revise"); if (rv) rv.onclick = () => { noteOpen = true; render(S); };
+        <button class="primary" id="approve" ${waiting ? "disabled" : ""}>${armed ? `Yes — run ${n} command${n > 1 ? "s" : ""} as ${esc(actor())}` : c.kind === "launch" ? "Approve launch" : `Approve ${esc((DECISION_TITLE[c.verdict] || c.verdict).toLowerCase())}`}</button>
+        ${armed ? `<button id="disarm">Cancel</button>` : ""}
+        ${c.kind === "launch" ? `<button id="reject" ${waiting ? "disabled" : ""}>Reject</button><button id="revise" ${waiting ? "disabled" : ""}>Reject with a note</button>` : c.finishing ? "" : `<button id="reject" ${waiting ? "disabled" : ""}>Keep running</button>`}
+        ${waiting ? `<span class="spinner"></span>` : ""}</div>`;
+  paint("card", JSON.stringify(["card", c, s.busy, s.working, armed, ui.noteOpen, actor()]), `<h2>Waiting for you</h2>${body}
+    <div class="section"><div class="label">Approving runs ${n} Flagsmith CLI command${n > 1 ? "s" : ""}</div>${commandsHtml(c.commands, c.id)}</div>
+    <div class="actions">${actions}</div>`,
+  () => {
+    if (ui.noteOpen) {
+      const note = $("note");
+      note.oninput = () => { ui.noteText = note.value; };
+      if (ui.focusNote) { note.focus(); ui.focusNote = false; }
+      $("send-note").onclick = () => { const t = note.value.trim(); if (!t) return; ui.noteOpen = false; ui.noteText = ""; post("/api/reject", { note: t }); render(S); };
+      $("cancel-note").onclick = () => { ui.noteOpen = false; render(S); };
+      return;
+    }
+    $("approve").onclick = () => {
+      if (ui.confirmFor === c.id) { ui.confirmFor = null; post("/api/approve", { card_id: c.id }); }
+      else { ui.confirmFor = c.id; }
+      render(S);
+    };
+    const disarm = $("disarm"); if (disarm) disarm.onclick = () => { ui.confirmFor = null; render(S); };
+    const rj = $("reject"); if (rj) rj.onclick = () => post("/api/reject");
+    const rv = $("revise"); if (rv) rv.onclick = () => { ui.noteOpen = true; ui.focusNote = true; render(S); };
+  });
 }
 
 function renderActivity(s) {
   const a = s.activity, shipped = s.lineage.filter((g) => g.result && g.result.verdict === "SHIP").length;
-  $("activity-stats").innerHTML = `
+  paint("activity-stats", JSON.stringify([a.flagsmith_writes, a.results_refreshes, a.chats_read_by_coach, shipped]), `
     <div class="stat"><b>${a.flagsmith_writes}</b><span>Flagsmith changes made for you (+${a.results_refreshes} results refreshes)</span></div>
     <div class="stat"><b>${a.chats_read_by_coach}</b><span>conversations read by the Coach</span></div>
-    <div class="stat"><b>${shipped}</b><span>generations shipped</span></div>`;
-  $("history").innerHTML = s.history.slice().reverse().map((h) => `<li><time>${clock(h.ts)}</time><span>${esc(h.text)}</span></li>`).join("") || `<li><span class="muted">Nothing yet.</span></li>`;
-  $("commands").innerHTML = a.recent_commands.slice().reverse().map((j) => `<div class="cmd"><div class="s">${j.ok ? "✓" : "✗"} ${esc(j.summary)} <span class="faint">${clock(j.ts)}</span></div><code>$ ${esc(j.command)}</code></div>`).join("")
-    || `<div class="empty">Approved actions run the official Flagsmith CLI. They'll be listed here.</div>`;
+    <div class="stat"><b>${shipped}</b><span>generations shipped</span></div>`);
+  paint("history", JSON.stringify(s.history), s.history.slice().reverse().map((h) => `<li><time>${clock(h.ts)}</time><span>${esc(h.text)}</span></li>`).join("") || `<li><span class="muted">Nothing yet.</span></li>`);
+  paint("commands", JSON.stringify(a.recent_commands), a.recent_commands.slice().reverse().map((j) => `<div class="cmd"><div class="s">${j.ok ? "✓" : "✗"} ${esc(j.summary)} <span class="faint">${clock(j.ts)}</span></div><code>$ ${esc(j.command)}</code></div>`).join("")
+    || `<div class="empty">Approved actions run the official Flagsmith CLI. They'll be listed here.</div>`);
 }
 
 async function loadChats() {
   const g = $("f-gen").value, o = $("f-out").value;
-  const rows = await (await fetch(`/api/transcripts?limit=30${g ? `&generation=${g}` : ""}${o ? `&outcome=${o}` : ""}`)).json();
-  $("chats").innerHTML = rows.map((r) => `<details class="chat"><summary>
+  let rows;
+  try { rows = await (await fetch(`/api/transcripts?limit=30${g ? `&generation=${encodeURIComponent(g)}` : ""}${o ? `&outcome=${o}` : ""}`)).json(); }
+  catch (e) { console.error(e); return; }
+  paint("chats", JSON.stringify([g, o, rows]), rows.map((r) => `<details class="chat" data-key="${esc(r.session_id)}"><summary>
       <span class="badge ${r.resolved ? "b-champion" : r.escalated ? "b-challenger" : "b-killed"}">${r.resolved ? "resolved" : r.escalated ? "to human" : "not resolved"}</span>
       <b>${esc(r.generation)}</b><span class="small muted">${esc(r.channel)} · ${esc(r.turns.find((t) => t.role === "customer")?.text.slice(0, 90))}</span></summary>
       <div class="body">${r.turns.map((t) => t.role === "customer" ? `<div class="c">${esc(t.text)}</div>` :
         (t.tools || []).map((x) => `<div class="t">🔧 ${esc(x.name)}(${esc(Object.values(x.input).join(", ").slice(0, 120))})${x.is_error ? " ⚠️" : ""}</div>`).join("") + `<div class="b">${esc(t.text)}</div>`).join("")}
-        ${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ""}</div></details>`).join("") || `<div class="empty">No conversations yet.</div>`;
+        ${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ""}</div></details>`).join("") || `<div class="empty">No conversations yet.</div>`);
 }
 
 function render(s) {
+  if (!s) return;
   renderTop(s); renderLineage(s); renderExperiment(s); renderCard(s); renderActivity(s);
+  document.querySelectorAll("[data-since]").forEach((x) => { x.textContent = ago(+x.dataset.since); });
   const sel = $("f-gen"), cur = sel.value;
   const opts = ['<option value="">all generations</option>'].concat(s.lineage.map((g) => `<option value="${esc(g.name)}">${esc(g.name)}</option>`)).join("");
-  if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.value = cur; sel.dataset.opts = opts; }
+  if (sel.dataset.opts !== opts && document.activeElement !== sel) { sel.innerHTML = opts; sel.value = cur; sel.dataset.opts = opts; }
   (s.toasts || []).filter((t) => t.ts * 1000 > seenToasts).forEach((t) => toast(t.kind, t.text));
   if (s.toasts && s.toasts.length) seenToasts = Math.max(seenToasts, ...s.toasts.map((t) => t.ts * 1000));
 }
@@ -402,6 +448,10 @@ function render(s) {
 async function load() {
   try { S = await (await fetch("/api/state")).json(); render(S); } catch (e) { console.error(e); }
 }
+$("approver").oninput = (e) => {
+  e.target.dataset.touched = "1";
+  try { localStorage.setItem("darwin-approver", e.target.value.trim()); } catch {}
+};
 $("f-gen").onchange = loadChats; $("f-out").onchange = loadChats;
 seenToasts = Date.now();
 load(); loadChats();

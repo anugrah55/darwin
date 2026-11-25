@@ -8,6 +8,7 @@ While an experiment runs, the Lab checks Flagsmith's results on its own every DA
 
 from __future__ import annotations
 
+import getpass
 import os
 import threading
 import time
@@ -25,6 +26,10 @@ from darwin.steward import Steward
 STATIC = Path(__file__).parent / "static"
 
 
+def default_approver() -> str:
+    return os.environ.get("DARWIN_APPROVER") or getpass.getuser()
+
+
 class Act(BaseModel):
     actor: str = "you"
     card_id: str | None = None
@@ -34,15 +39,16 @@ class Act(BaseModel):
 
 
 class Lab:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, steward: Steward | None = None, auto_check: bool = True):
         self.settings = settings
-        self.steward = Steward(settings)
+        self.steward = steward or Steward(settings)
         self.toasts: list[dict] = []
         self._worker: threading.Thread | None = None
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self.auto_every = float(os.environ.get("DARWIN_AUTO_CHECK_SECONDS", "60"))
-        threading.Thread(target=self._auto_check, daemon=True).start()
+        if auto_check:
+            threading.Thread(target=self._auto_check, daemon=True).start()
 
     def toast(self, kind: str, text: str) -> None:
         self.toasts = (self.toasts + [{"ts": time.time(), "kind": kind, "text": text}])[-6:]
@@ -75,10 +81,11 @@ class Lab:
                 traceback.print_exc()
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, steward: Steward | None = None, auto_check: bool = True) -> FastAPI:
     settings = settings or Settings.load()
     app = FastAPI(title="Darwin Lab")
-    lab = Lab(settings)
+    lab = Lab(settings, steward, auto_check)
+    app.state.lab = lab
 
     @app.get("/")
     def page():
@@ -91,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         st["shopbot_url"] = settings.shopbot_url
         st["working"] = bool(lab._worker and lab._worker.is_alive())
         st["auto_check_seconds"] = lab.auto_every
+        st["default_approver"] = default_approver()  # used until the person types a name on the page
         return st
 
     @app.post("/api/evolve")
