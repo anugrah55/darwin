@@ -55,6 +55,17 @@ class Notebook:
         self._append(f"### {generation}: {verdict} ({_ts()})\n\n{headline}\n\n{bullet}{predicted}\n\n"
                      f"Experiment #{experiment_id} completed; approved by **{approver}**.")
 
+    def stopped(self, generation: str, experiment_id: int, approver: str, reason: str = "") -> None:
+        self._append(f"### {generation}: STOPPED ({_ts()})\n\nExperiment #{experiment_id} stopped by **{approver}**; the champion "
+                     f"stays live for everyone." + (f" Reason: {reason}" if reason else ""))
+
+    def rolled_back(self, generation: str, previous: str | None, approver: str) -> None:
+        self._append(f"## {generation} — champion again ({_ts()})\n\n**{approver}** rolled the flag back from {previous or '–'} "
+                     f"to {generation}. Everyone gets it now, with no redeploy.")
+
+    def event(self, title: str, text: str) -> None:
+        self._append(f"### {title} ({_ts()})\n\n{text}")
+
     def rejected(self, generation: str, approver: str, note: str | None) -> None:
         extra = f" Note: “{note}”" if note else ""
         self._append(f"### {generation}: proposal rejected by **{approver}** ({_ts()})\n\n{extra.strip() or 'No note.'}")

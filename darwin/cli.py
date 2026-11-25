@@ -174,8 +174,31 @@ def cmd_reject(args) -> None:
         print("Rejected. Nothing changed in Flagsmith.")
 
 
+def cmd_reconcile(args) -> None:
+    s = steward()
+    out = s.reconcile(actor_of(args))
+    print(out["note"])
+    card = out.get("card")
+    if not card:
+        return
+    print()
+    print_card(card)
+    if not args.yes:
+        answer = input(bold(f"\nType 'approve' to run these {len(card['commands'])} commands as {actor_of(args)}: "))
+        if answer.strip().lower() != "approve":
+            sys.exit("Not approved. Nothing changed.")
+    done = s.approve(actor_of(args), card_id=card["id"])
+    print(green("Done. ") + ", ".join(f"{k}: {v}" for k, v in done.items()))
+
+
 def cmd_check(args) -> None:
     out = steward().check(actor_of(args), refresh=not args.no_refresh)
+    if out.get("reconciled"):
+        print(out["note"])
+        if out["reconciled"].get("card"):
+            print()
+            print_card(out["reconciled"]["card"])
+        return
     if not out["running"]:
         print("No experiment is running.")
         return
@@ -290,6 +313,9 @@ def main(argv: list[str] | None = None) -> None:
     w = add("watch", cmd_watch, "check every minute until a decision needs you")
     w.add_argument("--every", type=int, default=60)
     w.add_argument("--max-minutes", type=int, default=90)
+    rc = add("reconcile", cmd_reconcile, "make Darwin's state match Flagsmith's (after a half-finished approval, or a "
+                                         "change made in the dashboard)")
+    rc.add_argument("--yes", action="store_true", help="don't ask to type 'approve' before finishing missing steps")
     stp = add("stop", cmd_stop, "emergency stop: end the experiment, keep the champion")
     stp.add_argument("--reason", default="")
     rb = add("rollback", cmd_rollback, "make an earlier generation the champion again")

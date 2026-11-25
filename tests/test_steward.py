@@ -434,3 +434,154 @@ def test_flagsmith_records_who_approved_the_launch_and_the_decision(env):
     steward.approve("maya", card_id=decision["id"])
     assert fs.exps[exp_id]["hypothesis"].endswith(f"Shipped in Darwin by maya (card {decision['id']}).")
     assert "Approved in Darwin by anugrah" in fs.exps[exp_id]["hypothesis"]
+
+
+def to_ship_card(steward, fs, tmp):
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    fs.payloads[exp_id] = payload(steward.store.read()["metrics"], "gen2")
+    assert steward.check()["decision"]["verdict"] == "SHIP"
+    return exp_id
+
+
+def completes(fs):
+    return [c for c in fs.log if c.args[0] == "api" and c.args[1].endswith("/complete/")]
+
+
+def test_a_ship_that_stops_halfway_is_finished_without_completing_twice(env):
+    steward, fs, tmp = env
+    exp_id = to_ship_card(steward, fs, tmp)
+    fs.fail_next = lambda c: c.args[:2] == ["flag", "update"]  # complete works, then making gen2 the default fails
+    with pytest.raises(FlagsmithError):
+        steward.approve("a")
+    assert fs.exps[exp_id]["status"] == "completed" and steward.store.read()["experiment"]["deciding"]["verdict"] == "SHIP"
+    out = steward.check()
+    card = out["reconciled"]["card"]
+    assert out["running"] and card["finishing"] and not any("complete" in c["command"] for c in card["commands"])
+    assert len(card["commands"]) == 2  # make gen2 the default, record the decision in Flagsmith
+    assert steward.check()["reconciled"]["card"]["id"] == card["id"]  # checking again doesn't churn the card
+    steward.approve("a", card_id=card["id"])
+    s = steward.store.read()
+    assert s["champion"] == "gen2" and s["experiment"] is None and s["pending"] is None
+    assert json.loads(fs.features["shopbot_brain"]["default_value"])["name"] == "gen2"
+    assert "Shipped in Darwin by a" in fs.exps[exp_id]["hypothesis"] and len(completes(fs)) == 1
+    chats(tmp, "gen2")
+    assert steward.propose()["challenger"] == "gen3"  # the loop isn't wedged
+
+
+def test_approving_the_old_card_again_after_a_partial_failure_shows_only_the_missing_steps(env):
+    steward, fs, tmp = env
+    exp_id = to_ship_card(steward, fs, tmp)
+    fs.fail_next = lambda c: c.args[:2] == ["flag", "update"]
+    with pytest.raises(FlagsmithError):
+        steward.approve("a")
+    with pytest.raises(StewardError, match="already completed"):
+        steward.approve("a")
+    card = steward.store.read()["pending"]
+    assert not any("complete" in c["command"] for c in card["commands"])
+    steward.approve("a", card_id=card["id"])
+    assert steward.store.read()["champion"] == "gen2" and len(completes(fs)) == 1
+
+
+def test_a_failed_complete_leaves_nothing_half_done(env):
+    steward, fs, tmp = env
+    exp_id = to_ship_card(steward, fs, tmp)
+    fs.fail_next = lambda c: c.args[0] == "api" and c.args[1].endswith("/complete/")
+    with pytest.raises(FlagsmithError):
+        steward.approve("a")
+    s = steward.store.read()
+    assert fs.exps[exp_id]["status"] == "running" and s["experiment"]["deciding"] is None and s["pending"]["kind"] == "decision"
+    steward.approve("a")
+    assert steward.store.read()["champion"] == "gen2"
+
+
+def test_an_experiment_completed_in_the_dashboard_is_adopted_without_writing_to_flagsmith(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    fs.complete_in_dashboard(exp_id, "variant", "gen2")
+    writes = len(fs.log)
+    out = steward.check()
+    s = steward.store.read()
+    assert not out["running"] and "outside Darwin" in out["note"]
+    assert s["champion"] == "gen2" and s["experiment"] is None and len(fs.log) == writes
+
+
+def test_stop_after_flagsmith_already_completed_never_completes_again(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    fs.complete_in_dashboard(exp_id, "control")
+    out = steward.abort("a", "looks wrong")
+    s = steward.store.read()
+    assert "gen1 kept for everyone" in out["note"] and s["experiment"] is None and s["generations"]["gen2"]["status"] == "stopped"
+    assert completes(fs) == []
+
+
+def test_stop_completes_with_control_and_records_it_in_flagsmith_and_the_notebook(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    shown = steward.stop_plan("anugrah", "escalations look high")
+    assert "complete" in shown[0]["command"] and "Stopped in Darwin by anugrah" in shown[1]["summary"]
+    steward.abort("anugrah", "escalations look high", expected=shown)
+    assert fs.exps[exp_id]["rollout_decision"] == "control"
+    assert fs.exps[exp_id]["hypothesis"].endswith("Stopped in Darwin by anugrah: escalations look high.")
+    assert "gen2: STOPPED" in (tmp / "LAB_NOTEBOOK.md").read_text()
+
+
+def test_stop_refuses_when_the_plan_changed_since_it_was_shown(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    shown = steward.stop_plan("anugrah")
+    fs.exps[exp_id]["hypothesis"] += " (edited in the dashboard)"
+    with pytest.raises(StewardError, match="changed"):
+        steward.abort("anugrah", expected=shown)
+    assert fs.exps[exp_id]["status"] == "running"
+
+
+def test_a_deleted_or_paused_experiment_is_reported(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    fs.exps[exp_id]["status"] = "paused"
+    assert "paused" in steward.check()["note"]
+    del fs.exps[exp_id]
+    out = steward.check()
+    assert not out["running"] and "no longer exists" in out["note"]
+    assert steward.store.read()["generations"]["gen2"]["status"] == "stopped"
+
+
+def test_reconcile_reports_an_active_experiment_darwin_isnt_tracking(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    fid = fs.features["shopbot_brain"]["id"]
+    fs.exps[300] = {"id": 300, "name": "someone's test", "status": "running", "feature": {"id": fid, "name": "shopbot_brain"}}
+    assert "someone's test" in steward.reconcile("a")["note"]
+
+
+def test_cli_reconcile_shows_the_missing_steps_and_finishes_them(env, monkeypatch, capsys):
+    import darwin.cli as cli
+    steward, fs, tmp = env
+    exp_id = to_ship_card(steward, fs, tmp)
+    fs.fail_next = lambda c: c.args[:2] == ["flag", "update"]
+    with pytest.raises(FlagsmithError):
+        steward.approve("a")
+    monkeypatch.setattr(cli, "steward", lambda: steward)
+    cli.main(["reconcile", "--yes", "--as", "anugrah"])
+    out = capsys.readouterr().out
+    assert "didn't run" in out and "Done." in out
+    assert steward.store.read()["champion"] == "gen2" and "Shipped in Darwin by anugrah" in fs.exps[exp_id]["hypothesis"]

@@ -188,7 +188,7 @@ class Steward:
             merged["variants"] = flag["variants"]
         return merged
 
-    def _same_plan(self, card: dict, build: Callable[[str], list[Command]]) -> list[Command]:
+    def _same_plan(self, card: dict, build: Callable[[str], list[Command]], changed: str | None = None) -> list[Command]:
         """Approval runs exactly the commands the human saw: every summary, command line and JSON body.
 
         `build(card_id)` makes the plan from Flagsmith's current state. If it differs from the card, the card is
@@ -204,8 +204,8 @@ class Steward:
                 st["pending"]["commands"] = fresh
                 st["pending"]["id"] = new_id
                 log_event(st, "card-updated", "Flagsmith changed since the card was made; its commands were updated for review")
-        raise StewardError("Flagsmith changed since this card was made, so the commands changed. "
-                           "Review the updated card and approve again.")
+        raise StewardError(changed or "Flagsmith changed since this card was made, so the commands changed. "
+                                      "Review the updated card and approve again.")
 
     def _stats(self, state: dict, name: str) -> dict:
         # A genome never changes, so every chat it served — as challenger or champion — is evidence about it.
@@ -463,13 +463,33 @@ class Steward:
         exp = s["experiment"]
         if not exp:
             return {"running": False}
+        if self._busy_now(s):
+            return {"running": True, "busy": True, "readout": exp.get("readout"), "decision": exp.get("decision"),
+                    "note": f"Darwin is busy ({s['busy']['what']}); results weren't checked this time."}
+        detail = self._experiment_detail(exp["id"])
+        if detail is None or detail.get("status") == "completed":
+            try:
+                out = self.reconcile(actor)
+            except StewardError as exc:  # another action claimed Darwin in the meantime
+                return {"running": True, "busy": True, "note": str(exc), "readout": exp.get("readout"),
+                        "decision": exp.get("decision")}
+            return {"running": not out["settled"], "reconciled": out, "note": out["note"],
+                    "readout": exp.get("readout"), "decision": exp.get("decision")}
+        if exp.get("deciding"):
+            # An approval stopped before `complete` took effect (Flagsmith still shows the experiment open).
+            with self.store.transaction() as st:
+                e = st["experiment"]
+                if e and e["id"] == exp["id"] and not self._busy_now(st):
+                    e["deciding"] = None
         note = None
+        if detail.get("status") == "paused":
+            note = "Flagsmith shows this experiment as paused: no new traffic is split. Resume it in Flagsmith, or stop it."
         current = self.admin.results(exp["id"]) or {}
         before = current.get("as_of")
         wait = refresh_wait_seconds(current.get("refresh_requested_at"))
         if refresh and wait > 0:
             refresh = False
-            note = f"Flagsmith recomputes results at most every 5 minutes; next refresh in {wait // 60}m {wait % 60:02d}s."
+            note = note or f"Flagsmith recomputes results at most every 5 minutes; next refresh in {wait // 60}m {wait % 60:02d}s."
         if refresh:
             try:
                 self.admin.run(self.admin.cmd_refresh_results(exp["id"]))
@@ -479,8 +499,7 @@ class Steward:
                         break
                     time.sleep(1.0)
             except Throttled:
-                note = "Flagsmith recomputes results at most once every 5 minutes; showing the latest."
-        detail = self.admin.experiment(exp["id"])
+                note = note or "Flagsmith recomputes results at most once every 5 minutes; showing the latest."
         results = self.admin.results(exp["id"])
         readout = parse_readout(detail, results, challenger=exp["challenger"], expected_split=exp["split"])
         decision = decide(readout, POLICIES[exp["goal"]], champion=exp["champion"],
@@ -490,6 +509,7 @@ class Steward:
             if not e or e["id"] != exp["id"]:
                 return {"running": False}
             e["readout"], e["decision"], e["checked_at"], e["note"] = readout.to_dict(), decision.to_dict(), _now(), note
+            e["flagsmith_status"] = detail.get("status")
             pending = st["pending"]
             if decision.needs_approval and e.get("dismissed") != decision.verdict:
                 if not pending or pending.get("kind") != "decision" or pending.get("verdict") != decision.verdict:
@@ -548,32 +568,220 @@ class Steward:
         if not exp or exp["id"] != card["experiment_id"]:
             raise StewardError("that experiment is no longer running")
         challenger = self._genome(s, exp["challenger"])
-        detail = self.admin.experiment(exp["id"])
-        self._same_plan(card, lambda cid: self._decision_plan(exp, card["verdict"], challenger, card_id=cid, detail=detail))
-        for cmd in self._decision_plan(exp, card["verdict"], challenger, card_id=card["id"], approver=actor, detail=detail):
-            self.admin.run(cmd)
+        detail = self._experiment_detail(exp["id"])
+        intent = exp.get("deciding")
+        completed = detail is not None and detail.get("status") == "completed"
+        if detail is None or (completed and not self._matches(intent, exp, detail)):
+            out = self._reconcile(exp, detail, actor)
+            raise StewardError(out["note"] + " Nothing was run.")
+        verdict, reason, changed = card["verdict"], "", None
+        if completed:  # an approved sequence stopped halfway: finish only what is missing
+            verdict, reason = intent["verdict"], intent.get("reason", "")
+            changed = ("Flagsmith already completed this experiment, so the card now lists only the approved steps that "
+                       "didn't run. Review it and approve again.")
+        self._same_plan(card, lambda cid: self._decision_plan(exp, verdict, challenger, card_id=cid, detail=detail, reason=reason),
+                        changed=changed)
+        self._run_decision(exp, verdict, challenger, card_id=card["id"], actor=actor, detail=detail, reason=reason)
+        headline = card.get("original_headline") or card["headline"]
+        reasons = card.get("original_reasons") or card["reasons"]
+        self._settle_decision(exp, verdict, actor, headline, reasons, s)
+        return {"verdict": verdict, "champion": exp["challenger"] if verdict == SHIP else exp["champion"]}
+
+    # ------------------------------------------------------------------ reconciliation
+    def _experiment_detail(self, experiment_id: int) -> dict | None:
+        """Flagsmith's view of the experiment, or None if it no longer exists there."""
         try:
-            self.admin.run(self.admin.cmd_refresh_results(exp["id"]))  # freeze the final numbers
-        except FlagsmithError:
-            pass
-        status = {SHIP: "champion", DISCARD: "discarded", KILL: "killed"}[card["verdict"]]
+            return self.admin.experiment(experiment_id)
+        except FlagsmithError as exc:
+            if exc.status == 404:
+                return None
+            raise
+
+    @staticmethod
+    def _matches(intent: dict | None, exp: dict, detail: dict) -> bool:
+        """Does Flagsmith's rollout decision match what the human approved?"""
+        if not intent:
+            return False
+        if intent["verdict"] == SHIP:
+            return detail.get("rollout_decision") == "variant" and detail.get("rollout_variant") == exp.get("option_id")
+        return (detail.get("rollout_decision") or "control") == "control"
+
+    def _run_decision(self, exp: dict, verdict: str, challenger: Genome, *, card_id: str | None, actor: str, detail: dict,
+                      reason: str = "") -> None:
+        """Write the approved intent first, then run the commands. If they stop halfway, the next check, approval
+        or `darwin reconcile` sees the intent and finishes only the missing steps."""
         with self.store.transaction() as st:
             e = st["experiment"]
+            if not e or e["id"] != exp["id"]:
+                raise StewardError("that experiment is no longer running")
+            e["deciding"] = {"verdict": verdict, "card_id": card_id, "actor": actor, "at": _now(), "reason": reason}
+        try:
+            for cmd in self._decision_plan(exp, verdict, challenger, card_id=card_id, approver=actor, detail=detail, reason=reason):
+                self.admin.run(cmd)
+        except Exception:
+            if detail.get("status") != "completed":
+                self._drop_intent_unless_completed(exp)
+            raise
+
+    def _drop_intent_unless_completed(self, exp: dict) -> None:
+        try:
+            now = self._experiment_detail(exp["id"])
+        except FlagsmithError:
+            return  # can't tell; the next check decides
+        if now is not None and now.get("status") != "completed":
+            with self.store.transaction() as st:
+                if st["experiment"] and st["experiment"]["id"] == exp["id"]:
+                    st["experiment"]["deciding"] = None
+
+    def _settle(self, exp: dict, *, challenger_status: str, verdict: str, actor: str, headline: str, reasons: list[str],
+                history: str, kind: str = "decided", new_champion: str | None = None) -> bool:
+        """Close the experiment in Darwin's state. Returns False if something else already closed it."""
+        with self.store.transaction() as st:
+            e = st["experiment"]
+            if not e or e["id"] != exp["id"]:
+                return False
             gen = st["generations"][e["challenger"]]
-            gen.update(status=status, decided_at=_now(), decided_by=actor,
-                       result={"verdict": card["verdict"], "headline": card["headline"], "reasons": card["reasons"],
-                               "readout": e.get("readout"), "experiment_id": e["id"]})
-            if card["verdict"] == SHIP:
-                st["generations"][e["champion"]]["status"] = "retired"
-                gen["became_champion_at"] = _now()
-                st["champion"] = e["challenger"]
+            gen.update(status=challenger_status, decided_at=_now(), decided_by=actor,
+                       result={"verdict": verdict, "headline": headline, "reasons": reasons, "readout": e.get("readout"),
+                               "experiment_id": e["id"]})
+            if new_champion and new_champion != st["champion"]:
+                if st["champion"] in st["generations"]:
+                    st["generations"][st["champion"]]["status"] = "retired"
+                st["generations"][new_champion].update(status="champion", became_champion_at=_now())
+                st["champion"] = new_champion
             st["experiment"] = None
-            st["pending"] = None
-            log_event(st, "decided", f"{actor} approved {card['verdict']} for {e['challenger']}: {card['headline']}", actor,
-                      generation=e["challenger"], experiment_id=e["id"], verdict=card["verdict"])
-        expected = (s["pending"] or {}).get("expected") or self._expected(s, exp["challenger"])
-        self.notebook.decided(exp["challenger"], card["verdict"], card["headline"], card["reasons"], actor, exp["id"], expected)
-        return {"verdict": card["verdict"], "champion": exp["challenger"] if card["verdict"] == SHIP else exp["champion"]}
+            if st["pending"] and st["pending"].get("kind") == "decision":
+                st["pending"] = None
+            log_event(st, kind, history, actor, generation=e["challenger"], experiment_id=e["id"], verdict=verdict)
+        return True
+
+    def _settle_decision(self, exp: dict, verdict: str, actor: str, headline: str, reasons: list[str], state: dict) -> None:
+        status = {SHIP: "champion", DISCARD: "discarded", KILL: "killed", STOP: "stopped"}[verdict]
+        if verdict == STOP:
+            reason = (exp.get("deciding") or {}).get("reason") or headline
+            history = f"{actor} stopped experiment #{exp['id']}" + (f": {reason}" if reason else "")
+            if self._settle(exp, challenger_status=status, verdict=STOP, actor=actor, headline=history, reasons=[],
+                            history=history, kind="stopped"):
+                self.notebook.stopped(exp["challenger"], exp["id"], actor, reason)
+            return
+        history = f"{actor} approved {verdict} for {exp['challenger']}: {headline}"
+        if self._settle(exp, challenger_status=status, verdict=verdict, actor=actor, headline=headline, reasons=reasons,
+                        history=history, new_champion=exp["challenger"] if verdict == SHIP else None):
+            expected = self._expected(state, exp["challenger"])
+            self.notebook.decided(exp["challenger"], verdict, headline, reasons, actor, exp["id"], expected)
+
+    def _variant_key(self, option_id: int | None) -> str | None:
+        if option_id is None:
+            return None
+        return next((v["key"] for v in self._feature().get("variants") or [] if v["id"] == option_id), None)
+
+    def _adopt(self, exp: dict, detail: dict | None, actor: str) -> dict:
+        """Flagsmith settled the experiment outside Darwin (the dashboard, or a rollout Darwin didn't approve).
+        Darwin's state follows Flagsmith; nothing is written to Flagsmith."""
+        s = self.store.read()
+        eid, challenger = exp["id"], exp["challenger"]
+        if detail is None:
+            note = f"Experiment #{eid} no longer exists in Flagsmith, so Darwin stopped tracking it. {exp['champion']} is still the champion."
+            status, new_champion, verdict = "stopped", None, STOP
+        else:
+            decision = detail.get("rollout_decision") or "control"
+            key = self._variant_key(detail.get("rollout_variant")) if decision == "variant" else None
+            if decision == "variant" and key == challenger:
+                note = f"Flagsmith shows experiment #{eid} completed with {challenger} rolled out to everyone (done outside Darwin)."
+                status, new_champion, verdict = "champion", challenger, SHIP
+            elif decision == "variant" and key in s["generations"]:
+                note = f"Flagsmith shows experiment #{eid} completed with {key} rolled out to everyone (done outside Darwin)."
+                status, new_champion, verdict = "stopped", key, STOP
+            elif decision == "variant":
+                note = (f"Flagsmith shows experiment #{eid} completed with a variant Darwin doesn't know ({key or detail.get('rollout_variant')}) "
+                        f"rolled out. Darwin stopped tracking it; check the flag in Flagsmith.")
+                status, new_champion, verdict = "stopped", None, STOP
+            elif decision == "disable":
+                note = (f"Flagsmith shows experiment #{eid} completed with the flag turned off: ShopBot serves its bundled fallback "
+                        f"genome until someone turns {self.flag} back on.")
+                status, new_champion, verdict = "stopped", None, STOP
+            else:
+                note = f"Flagsmith shows experiment #{eid} completed with {exp['champion']} kept for everyone (done outside Darwin)."
+                status, new_champion, verdict = "stopped", None, STOP
+        note += " Darwin's state now matches; nothing was changed in Flagsmith."
+        if self._settle(exp, challenger_status=status, verdict=verdict, actor="flagsmith", headline=note, reasons=[], history=note,
+                        kind="reconciled", new_champion=new_champion):
+            self.notebook.event(f"{challenger}: settled in Flagsmith", note)
+        return {"settled": True, "note": note, "card": None}
+
+    def _reconcile(self, exp: dict, detail: dict | None, actor: str) -> dict:
+        """Match Darwin's state to Flagsmith's for this experiment. Never writes to Flagsmith: if an approved sequence
+        stopped halfway, the missing steps go on a card for a human to approve."""
+        if detail is None:
+            return self._adopt(exp, None, actor)
+        status = detail.get("status")
+        if status != "completed":
+            note = (f"Experiment #{exp['id']} is paused in Flagsmith: resume it there, or stop it." if status == "paused"
+                    else f"Experiment #{exp['id']} is {status} in Flagsmith; nothing to reconcile.")
+            return {"settled": False, "note": note, "card": None}
+        intent = exp.get("deciding")
+        if not self._matches(intent, exp, detail):
+            return self._adopt(exp, detail, actor)
+        s = self.store.read()
+        challenger = self._genome(s, exp["challenger"])
+        verdict, reason = intent["verdict"], intent.get("reason", "")
+
+        def build(cid: str) -> list[Command]:
+            return self._decision_plan(exp, verdict, challenger, card_id=cid, detail=detail, reason=reason)
+
+        if not build("x"):  # every approved step is visible in Flagsmith: only Darwin's state is behind
+            pending = s["pending"] if (s["pending"] or {}).get("experiment_id") == exp["id"] else {}
+            self._settle_decision(exp, verdict, intent.get("actor") or actor, pending.get("original_headline") or
+                                  pending.get("headline") or (exp.get("decision") or {}).get("headline") or verdict,
+                                  pending.get("original_reasons") or pending.get("reasons") or [], s)
+            return {"settled": True, "note": f"Experiment #{exp['id']} was already settled in Flagsmith; Darwin's state now matches.",
+                    "card": None}
+        pending = s["pending"]
+        if pending and pending.get("kind") == "decision" and pending.get("experiment_id") == exp["id"] \
+                and pending.get("finishing") and pending["commands"] == [c.to_dict() for c in build(pending["id"])]:
+            return {"settled": False, "note": pending["headline"], "card": pending}
+        card_id = uuid.uuid4().hex[:8]
+        commands = [c.to_dict() for c in build(card_id)]
+        base = pending if pending and pending.get("experiment_id") == exp["id"] else {}
+        headline = (f"Flagsmith already completed experiment #{exp['id']} as approved ({VERBS[verdict].lower()}), but "
+                    f"{len(commands)} approved step{'s' if len(commands) > 1 else ''} didn't run. Approving runs only "
+                    f"{'these' if len(commands) > 1 else 'this one'}.")
+        card = {"kind": "decision", "id": card_id, "created_at": _now(), "verdict": verdict, "finishing": True,
+                "headline": headline, "reasons": base.get("reasons") or [], "experiment_id": exp["id"],
+                "original_headline": base.get("original_headline") or base.get("headline") or (exp.get("decision") or {}).get("headline"),
+                "original_reasons": base.get("original_reasons") or base.get("reasons") or [],
+                "champion": exp["champion"], "challenger": exp["challenger"], "goal": exp["goal"],
+                "readout": exp.get("readout"), "commands": commands}
+        with self.store.transaction() as st:
+            if st["experiment"] and st["experiment"]["id"] == exp["id"]:
+                st["pending"] = card
+                log_event(st, "unfinished", headline, "darwin", experiment_id=exp["id"])
+        return {"settled": False, "note": headline, "card": card}
+
+    def reconcile(self, actor: str = "darwin") -> dict:
+        """Read Flagsmith's real state and make Darwin's match. Writes to Flagsmith only ever go through a card."""
+        s = self.store.read()
+        exp = s["experiment"]
+        if not exp:
+            return self._untracked()
+
+        def prepare(st: dict) -> str:
+            if not st["experiment"] or st["experiment"]["id"] != exp["id"]:
+                raise StewardError("the experiment changed while reconciling; run it again")
+            return f"Reconciling experiment #{exp['id']} with Flagsmith"
+
+        with self._claim(prepare):
+            return self._reconcile(exp, self._experiment_detail(exp["id"]), actor)
+
+    def _untracked(self) -> dict:
+        active = [e for e in self.admin.experiments() if e.get("status") != "completed"
+                  and (e.get("feature") or {}).get("name", self.flag) == self.flag]
+        if active:
+            listed = ", ".join(f"#{e['id']} '{e.get('name')}' ({e.get('status')})" for e in active)
+            return {"settled": False, "card": None,
+                    "note": f"Darwin isn't running an experiment, but Flagsmith has an active one on {self.flag}: {listed}. "
+                            f"Complete or delete it in Flagsmith before the next launch."}
+        return {"settled": False, "card": None, "note": "Nothing to reconcile: no experiment is running, and Flagsmith agrees."}
 
     # ------------------------------------------------------------------ human actions
     def approve(self, actor: str, card_id: str | None = None) -> dict:
@@ -643,19 +851,44 @@ class Steward:
         self.notebook.rejected(card["challenger"], actor, note)
         return new
 
-    def abort(self, actor: str, reason: str = "") -> dict:
-        """Emergency stop: end the running experiment and keep the champion for everyone."""
+    def stop_plan(self, actor: str, reason: str = "") -> list[dict]:
+        """The commands `darwin stop` would run, for the human to read first."""
         s = self.store.read()
         exp = s["experiment"]
         if not exp:
             raise StewardError("no experiment is running")
-        self.admin.run(self.admin.cmd_complete(exp["id"], "control"))
-        with self.store.transaction() as st:
-            st["generations"][exp["challenger"]].update(status="stopped", decided_at=_now(), decided_by=actor)
-            st["experiment"] = None
-            st["pending"] = None
-            log_event(st, "stopped", f"{actor} stopped experiment #{exp['id']}" + (f": {reason}" if reason else ""), actor,
-                      experiment_id=exp["id"])
+        detail = self._experiment_detail(exp["id"])
+        if detail is None or detail.get("status") == "completed":
+            return []
+        return [c.to_dict() for c in self._decision_plan(exp, STOP, self._genome(s, exp["challenger"]), card_id=None,
+                                                         approver=actor, detail=detail, reason=reason)]
+
+    def abort(self, actor: str, reason: str = "", expected: list[dict] | None = None) -> dict:
+        """Emergency stop: end the running experiment and keep the champion for everyone.
+
+        `expected` is the plan the human was shown (see stop_plan); if Flagsmith changed since, nothing runs.
+        """
+        ctx: dict = {}
+
+        def prepare(st: dict) -> str:
+            if not st["experiment"]:
+                raise StewardError("no experiment is running")
+            ctx["exp"] = st["experiment"]
+            return f"Stopping experiment #{st['experiment']['id']} for {actor}"
+
+        with self._claim(prepare):
+            exp = ctx["exp"]
+            s = self.store.read()
+            detail = self._experiment_detail(exp["id"])
+            if detail is None or detail.get("status") == "completed":
+                out = self._reconcile(exp, detail, actor)
+                return {"stopped": exp["id"], "note": out["note"]}
+            challenger = self._genome(s, exp["challenger"])
+            plan = self._decision_plan(exp, STOP, challenger, card_id=None, approver=actor, detail=detail, reason=reason)
+            if expected is not None and expected != [c.to_dict() for c in plan]:
+                raise StewardError("Flagsmith changed since the commands were shown, so nothing ran. Run `darwin stop` again.")
+            self._run_decision(exp, STOP, challenger, card_id=None, actor=actor, detail=detail, reason=reason)
+            self._settle_decision(exp, STOP, actor, reason, [], s)
         return {"stopped": exp["id"]}
 
     def rollback(self, generation: str, actor: str) -> dict:
