@@ -315,8 +315,10 @@ function renderCard(s) {
     const p = c.proposal, st = c.stats || {}, set = c.diff.settings;
     body = `<div class="card-title"><h3>Launch ${esc(c.challenger)}?</h3><span class="badge b-proposed">proposal</span></div>
       <div class="small muted">Challenger to ${esc(c.champion)} · goal: ${esc(c.goal_text)}</div>
+      ${c.author && c.author !== "coach" ? `<div class="small warn" style="margin-top:6px">Written by ${esc(c.author)}, not the Coach. Same experiment, same guardrails.</div>` : ""}
       ${c.review_note ? `<div class="small warn" style="margin-top:6px">Revised after your note: “${esc(c.review_note)}”</div>` : ""}
-      <div class="section"><div class="label">What's going wrong — from ${c.chats_read} chats</div>
+      ${p.patterns.length ? "" : `<div class="section small muted">No diagnosis: this challenger didn't come from the Coach.</div>`}
+      <div class="section" style="${p.patterns.length ? "" : "display:none"}"><div class="label">What's going wrong — from ${c.chats_read} chats</div>
         <div class="small muted" style="margin-bottom:8px">${esc(c.champion)}: ${st.chats} chats, ${pct(st.resolution_rate)} resolved, ${pct(st.escalation_rate)} handed to a human</div>
         ${p.patterns.map((x) => `<div class="pattern"><span class="n">×${x.count}</span> ${esc(x.pattern)}<div class="q">“${esc(x.example_quote)}”</div>
           <div class="small"><b>Cause:</b> ${esc(x.root_cause)} <b>Fix:</b> ${esc(x.fix)}</div></div>`).join("")}</div>

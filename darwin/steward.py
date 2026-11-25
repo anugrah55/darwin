@@ -213,6 +213,36 @@ class Steward:
                 return event.get("expected_effect")
         return None
 
+    def propose_manual(self, *, system_prompt: str, goal: str, summary: str, hypothesis: str, actor: str,
+                       effort: str | None = None, model: str | None = None) -> dict:
+        """A human-written challenger. It goes through the same experiment, rules and approval as the Coach's."""
+        from .coach import Proposal, check_proposal
+
+        if goal not in GOALS:
+            raise StewardError(f"unknown goal {goal!r}; use one of {', '.join(GOALS)}")
+        with self.store.transaction() as s:
+            if s["experiment"] or s["pending"] or s["busy"]:
+                raise StewardError("finish the running experiment or pending card first")
+            champion = self._champion(s)
+            name = self._next_name(s)
+        proposal = Proposal(patterns=[], hypothesis=hypothesis, expected_effect=f"Proposed by {actor}; not predicted by the Coach.",
+                            changes_summary=[f"Prompt written by {actor}"], risks="Not reviewed by the Coach.", summary=summary,
+                            system_prompt=system_prompt, effort=effort or champion.effort, model=model or champion.model)
+        problems = check_proposal(proposal, champion, goal)
+        if problems:
+            raise StewardError("proposal failed Darwin's checks: " + "; ".join(problems))
+        genome = proposal_to_genome(proposal, champion, name)
+        stats = transcripts.stats(transcripts.load(self.transcripts_path, generation=champion.name))
+        card = self._launch_card(champion, genome, proposal, goal, stats, 0, 0.0, self.proposals_dir / f"{name}-manual.md")
+        card["author"] = actor
+        with self.store.transaction() as s:
+            s["generations"][name] = {"genome": genome.model_dump(), "status": "proposed", "born_at": _now(),
+                                      "parent": champion.name, "goal": goal, "summary": genome.summary, "author": actor}
+            s["pending"] = card
+            log_event(s, "proposed", f"{actor} proposed {name}: {genome.summary}", actor, generation=name, chats_read=0,
+                      coach_cost_usd=0, expected_effect=None)
+        return card
+
     def _history_lines(self, state: dict) -> list[str]:
         lines = []
         for name, g in state["generations"].items():
@@ -226,7 +256,7 @@ class Steward:
     def _launch_card(self, champion: Genome, genome: Genome, proposal: Proposal, goal: str, stats: dict,
                      chats_read: int, coach_cost: float, request_path: Path) -> dict:
         return {
-            "kind": "launch", "id": uuid.uuid4().hex[:8], "created_at": _now(), "goal": goal, "goal_text": GOALS[goal],
+            "kind": "launch", "id": uuid.uuid4().hex[:8], "created_at": _now(), "goal": goal, "goal_text": GOALS[goal], "author": "coach",
             "champion": champion.name, "challenger": genome.name, "genome": genome.model_dump(),
             "diff": champion.diff(genome), "proposal": dumps(proposal), "stats": stats, "chats_read": chats_read,
             "coach_cost_usd": round(coach_cost, 4), "request_path": str(request_path),

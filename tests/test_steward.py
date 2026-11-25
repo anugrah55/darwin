@@ -228,3 +228,14 @@ def test_approval_refuses_when_flagsmith_changed_since_the_card(env):
     assert updated["id"] != card["id"] and any("default value" in c["summary"] for c in updated["commands"])
     steward.approve("a", card_id=updated["id"])
     assert steward.store.read()["experiment"]
+
+
+def test_a_human_written_challenger_gets_the_same_gate(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    card = steward.propose_manual(system_prompt="You are ShopBot. Be brief.", goal="cost", summary="Trim the prompt",
+                                  hypothesis="A shorter prompt costs less", actor="pm", effort="low")
+    assert card["author"] == "pm" and card["challenger"] == "gen2" and card["proposal"]["patterns"] == []
+    assert len(fs.log) == 4  # nothing ran yet: only init's writes
+    steward.approve("anugrah")
+    assert steward.store.read()["experiment"]["goal"] == "cost"

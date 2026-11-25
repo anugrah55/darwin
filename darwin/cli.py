@@ -48,6 +48,8 @@ def print_card(card: dict) -> None:
     if card["kind"] == "launch":
         p, g, stats = card["proposal"], card["genome"], card.get("stats") or {}
         print(bold(f"┌ Proposal {g['name']} — challenger to {g['parent']} (goal: {card['goal']})"))
+        if card.get("author", "coach") != "coach":
+            print(bar + yellow(f"Written by {card['author']}, not the Coach. It faces the same experiment and guardrails."))
         print(bar + f"The Coach read {card['chats_read']} chats. {g['parent']}: {stats.get('chats', 0)} chats, "
                     f"{pct(stats.get('resolution_rate'))} resolved, {pct(stats.get('escalation_rate'))} handed to a human. "
                     + dim(f"(Coach cost ${card.get('coach_cost_usd', 0):.3f})"))
@@ -135,6 +137,13 @@ def cmd_round(args) -> None:
 def cmd_evolve(args) -> None:
     print(f"The Coach is reading the champion's conversations (goal: {args.goal}) …")
     card = steward().propose(goal=args.goal, actor=actor_of(args))
+    print_card(card)
+
+
+def cmd_propose(args) -> None:
+    prompt = Path(args.prompt_file).read_text()
+    card = steward().propose_manual(system_prompt=prompt, goal=args.goal, summary=args.summary, hypothesis=args.hypothesis,
+                                    actor=actor_of(args), effort=args.effort, model=args.model)
     print_card(card)
 
 
@@ -250,6 +259,13 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("--scenario")
     e = add("evolve", cmd_evolve, "ask the Coach for a challenger")
     e.add_argument("--goal", choices=["quality", "cost"], default="quality")
+    pr = add("propose", cmd_propose, "propose your own challenger prompt; it faces the same experiment and guardrails")
+    pr.add_argument("--prompt-file", required=True)
+    pr.add_argument("--goal", choices=["quality", "cost"], default="quality")
+    pr.add_argument("--summary", required=True)
+    pr.add_argument("--hypothesis", required=True)
+    pr.add_argument("--effort", choices=["low", "medium", "high"])
+    pr.add_argument("--model")
     a = add("approve", cmd_approve, "approve the waiting card (launch, ship, discard or kill)")
     a.add_argument("--yes", action="store_true", help="don't ask to type 'approve'")
     j = add("reject", cmd_reject, "reject the waiting card; with --note the Coach revises it")
