@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1082" height="428" viewBox="0 0 1082 428" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-label="Flagsmith experiment results per Darwin generation">
+<rect width="100%" height="100%" rx="12" fill="#fcfcfb"/>
+<text x="24" y="38" font-size="19" font-weight="650" fill="#0b0b0b">Every generation vs the champion it challenged</text>
+<text x="24" y="62" font-size="13.5" fill="#52514e">One row per Flagsmith experiment, ≈160 simulated customers split 50/50. Shaded cell = the experiment's goal metric.</text>
+<circle cx="276" cy="92" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<text x="288" y="96.5" font-size="13" fill="#52514e">champion (control)</text>
+<circle cx="446" cy="92" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="458" y="96.5" font-size="13" fill="#52514e">challenger</text>
+<text x="270" y="128" font-size="13.5" font-weight="600" fill="#0b0b0b">Resolved by ShopBot</text>
+<line x1="270.0" y1="140" x2="270.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="270.0" y="390" font-size="12" fill="#898781" text-anchor="start">50%</text>
+<line x1="375.0" y1="140" x2="375.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="375.0" y="390" font-size="12" fill="#898781" text-anchor="middle">75%</text>
+<line x1="480.0" y1="140" x2="480.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="480.0" y="390" font-size="12" fill="#898781" text-anchor="end">100%</text>
+<rect x="262" y="144" width="226" height="50" rx="8" fill="#f1f0ec"/>
+<line x1="350.4" y1="169.0" x2="442.8" y2="169.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="350.4" cy="169.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="442.8" cy="169.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="341.4" y="173.5" font-size="12" fill="#52514e" text-anchor="end">69%</text>
+<text x="451.8" y="173.5" font-size="12" fill="#52514e">91%</text>
+<line x1="470.3" y1="227.0" x2="474.2" y2="227.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="470.3" cy="227.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="474.2" cy="227.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<line x1="452.4" y1="285.0" x2="455.0" y2="285.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="452.4" cy="285.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="455.0" cy="285.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<rect x="262" y="318" width="226" height="50" rx="8" fill="#f1f0ec"/>
+<line x1="415.0" y1="343.0" x2="480.0" y2="343.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="415.0" cy="343.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="480.0" cy="343.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="406.0" y="347.5" font-size="12" fill="#52514e" text-anchor="end">85%</text>
+<text x="489.0" y="347.5" font-size="12" fill="#52514e">100%</text>
+<text x="536" y="128" font-size="13.5" font-weight="600" fill="#0b0b0b">Handed to a human</text>
+<line x1="536.0" y1="140" x2="536.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="536.0" y="390" font-size="12" fill="#898781" text-anchor="start">0%</text>
+<line x1="641.0" y1="140" x2="641.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="641.0" y="390" font-size="12" fill="#898781" text-anchor="middle">15%</text>
+<line x1="746.0" y1="140" x2="746.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="746.0" y="390" font-size="12" fill="#898781" text-anchor="end">30%</text>
+<line x1="717.5" y1="169.0" x2="571.4" y2="169.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="717.5" cy="169.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="571.4" cy="169.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<line x1="584.3" y1="227.0" x2="583.9" y2="227.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="584.3" cy="227.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="583.9" cy="227.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<line x1="637.3" y1="285.0" x2="627.7" y2="285.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="637.3" cy="285.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="627.7" cy="285.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<line x1="686.0" y1="343.0" x2="563.6" y2="343.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="686.0" cy="343.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="563.6" cy="343.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="802" y="128" font-size="13.5" font-weight="600" fill="#0b0b0b">Cost per 1,000 chats</text>
+<line x1="802.0" y1="140" x2="802.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="802.0" y="390" font-size="12" fill="#898781" text-anchor="start">$0.00</text>
+<line x1="907.0" y1="140" x2="907.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="907.0" y="390" font-size="12" fill="#898781" text-anchor="middle">$0.40</text>
+<line x1="1012.0" y1="140" x2="1012.0" y2="372" stroke="#e1e0d9" stroke-width="1"/>
+<text x="1012.0" y="390" font-size="12" fill="#898781" text-anchor="end">$0.80</text>
+<line x1="973.1" y1="169.0" x2="993.6" y2="169.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="973.1" cy="169.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="993.6" cy="169.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<rect x="794" y="202" width="226" height="50" rx="8" fill="#f1f0ec"/>
+<line x1="994.3" y1="227.0" x2="978.7" y2="227.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="994.3" cy="227.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="978.7" cy="227.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="969.7" y="231.5" font-size="12" fill="#52514e" text-anchor="end">$0.67</text>
+<text x="1003.3" y="231.5" font-size="12" fill="#52514e">$0.73</text>
+<rect x="794" y="260" width="226" height="50" rx="8" fill="#f1f0ec"/>
+<line x1="975.2" y1="285.0" x2="927.9" y2="285.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="975.2" cy="285.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="927.9" cy="285.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="918.9" y="289.5" font-size="12" fill="#52514e" text-anchor="end">$0.48</text>
+<text x="984.2" y="289.5" font-size="12" fill="#52514e">$0.66</text>
+<line x1="925.0" y1="343.0" x2="949.5" y2="343.0" stroke="#c3c2b7" stroke-width="2" stroke-linecap="round"/>
+<circle cx="925.0" cy="343.0" r="5.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="949.5" cy="343.0" r="5.5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<text x="24" y="166.0" font-size="14.5" font-weight="600" fill="#0b0b0b">#1  gen1 → gen2</text>
+<text x="24" y="184.0" font-size="12.5" fill="#52514e">Coach · resolve more · <tspan fill="#006300" font-weight="600">✓ shipped</tspan></text>
+<text x="24" y="224.0" font-size="14.5" font-weight="600" fill="#0b0b0b">#2  gen2 → gen3</text>
+<text x="24" y="242.0" font-size="12.5" fill="#52514e">Coach · cut cost · <tspan fill="#006300" font-weight="600">✓ shipped</tspan></text>
+<text x="24" y="282.0" font-size="14.5" font-weight="600" fill="#0b0b0b">#3  gen3 → gen4</text>
+<text x="24" y="300.0" font-size="12.5" fill="#52514e">teammate · cut cost · <tspan fill="#006300" font-weight="600">✓ shipped</tspan></text>
+<text x="24" y="340.0" font-size="14.5" font-weight="600" fill="#0b0b0b">#4  gen4 → gen5</text>
+<text x="24" y="358.0" font-size="12.5" fill="#52514e">Coach · resolve more · <tspan fill="#006300" font-weight="600">✓ shipped</tspan></text>
+</svg>
