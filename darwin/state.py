@@ -22,7 +22,7 @@ def empty_state(flag: str) -> dict:
         "generations": {},  # name -> generation record
         "experiment": None,  # the running experiment, if any
         "pending": None,  # the approval card waiting for a human, if any
-        "busy": None,  # {"what": ..., "since": ...} while the Coach or a sequence is working
+        "busy": None,  # {"what", "since", "pid", "token"} while the Coach or a command sequence is working
         "history": [],  # every decision and approval, newest last
     }
 

@@ -331,3 +331,72 @@ def test_a_conflicting_experiment_someone_else_created_is_a_clear_error(env):
     fs.exps[500] = {"id": 500, "name": "pricing test", "status": "running", "feature": {"id": fid, "name": "shopbot_brain"}}
     with pytest.raises(StewardError, match="pricing test"):
         steward.approve("a", card_id=card["id"])
+
+
+def test_ctrl_c_during_a_coach_call_leaves_darwin_unlocked(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+
+    def interrupted(**kw):
+        raise KeyboardInterrupt
+    steward.coach.propose = interrupted
+    with pytest.raises(KeyboardInterrupt):
+        steward.propose()
+    assert steward.store.read()["busy"] is None
+    del steward.coach.propose
+    assert steward.propose()["challenger"] == "gen2"
+
+
+def dead_pid() -> int:
+    import subprocess
+    p = subprocess.Popen(["true"])
+    p.wait()
+    return p.pid
+
+
+def test_a_busy_flag_left_by_a_dead_process_or_older_than_15_minutes_clears_itself(env):
+    import os
+    import time as _time
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    with steward.store.transaction() as s:
+        s["busy"] = {"what": "The Coach is reading gen1's conversations", "since": _time.time(), "pid": dead_pid()}
+    assert steward.propose()["challenger"] == "gen2"
+    steward.reject("a")
+    with steward.store.transaction() as s:
+        s["busy"] = {"what": "Running 4 Flagsmith commands", "since": _time.time() - 16 * 60, "pid": os.getpid()}
+    assert steward.status()["busy"] is None
+
+
+def test_a_live_busy_flag_blocks_other_actions_until_unlocked(env):
+    import os
+    import time as _time
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    with steward.store.transaction() as s:
+        s["busy"] = {"what": "Running 4 Flagsmith commands for the Lab", "since": _time.time(), "pid": os.getpid(), "token": "x"}
+    with pytest.raises(StewardError, match="busy"):
+        steward.approve("a")
+    with pytest.raises(StewardError, match="busy"):
+        steward.reject("a")
+    cleared = steward.unlock("a")
+    assert cleared["what"].startswith("Running") and steward.store.read()["busy"] is None
+    steward.approve("a")
+    assert steward.store.read()["experiment"] and steward.store.read()["busy"] is None
+
+
+def test_cli_unlock_reports_what_it_cleared(env, monkeypatch, capsys):
+    import time as _time
+    import darwin.cli as cli
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    with steward.store.transaction() as s:
+        s["busy"] = {"what": "The Coach is revising gen2", "since": _time.time(), "pid": dead_pid()}
+    monkeypatch.setattr(cli, "steward", lambda: steward)
+    cli.main(["unlock", "--as", "anugrah"])
+    assert "Cleared: The Coach is revising gen2" in capsys.readouterr().out
+    assert steward.store.read()["busy"] is None

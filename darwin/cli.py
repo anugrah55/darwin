@@ -213,6 +213,17 @@ def cmd_rollback(args) -> None:
     print(f"{out['champion']} is the champion again. Everyone gets it now — no redeploy.")
 
 
+def cmd_unlock(args) -> None:
+    busy = steward().unlock(actor_of(args))
+    if not busy:
+        print("Nothing was holding Darwin.")
+        return
+    since = time.strftime("%H:%M:%S", time.localtime(busy.get("since") or 0))
+    print(f"Cleared: {busy['what']} (since {since}).")
+    if busy.get("alive"):
+        print(yellow(f"Process {busy['pid']} is still running. If it finishes, its changes still apply."))
+
+
 def cmd_spend(args) -> None:
     from .llm import SpendLedger
 
@@ -279,6 +290,7 @@ def main(argv: list[str] | None = None) -> None:
     stp.add_argument("--reason", default="")
     rb = add("rollback", cmd_rollback, "make an earlier generation the champion again")
     rb.add_argument("generation")
+    add("unlock", cmd_unlock, "clear a stuck 'busy' flag (Darwin also clears it when its process exits or after 15 minutes)")
     add("spend", cmd_spend, "Claude API spend against the budget")
     add("lab", cmd_lab, "serve the Darwin Lab dashboard")
     add("shopbot", cmd_shopbot, "serve ShopBot")

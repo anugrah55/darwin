@@ -7,10 +7,12 @@ Approval cards carry the evidence and the exact Flagsmith CLI commands an approv
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterator
 
 from . import transcripts
 from .coach import GOALS, Coach, Proposal, dumps, proposal_to_genome
@@ -65,6 +67,31 @@ def _now() -> float:
     return time.time()
 
 
+BUSY_TTL = 15 * 60  # a sequence or Coach call that holds `busy` longer than this is treated as dead
+
+
+def _pid_alive(pid: int | None) -> bool:
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def busy_is_stale(busy: dict | None, now: float | None = None) -> bool:
+    """`busy` is stale when the process that set it has exited or it is older than BUSY_TTL."""
+    if not busy:
+        return False
+    if (now or time.time()) - float(busy.get("since") or 0) > BUSY_TTL:
+        return True
+    pid = busy.get("pid")
+    return bool(pid) and not _pid_alive(pid)
+
+
 class Steward:
     def __init__(self, settings: Settings, *, admin: FlagsmithAdmin | None = None, claude: Claude | None = None,
                  coach: Coach | None = None, store: StateStore | None = None, notebook: Notebook | None = None,
@@ -104,6 +131,39 @@ class Steward:
         """What everyone outside an experiment gets: a variant rolled out to 100%, else the default value."""
         full = [v for v in feature.get("variants") or [] if float(v.get("weight") or 0) >= 100]
         return full[0]["value"] if full else feature["default_value"]
+
+    @staticmethod
+    def _expire_busy(state: dict) -> None:
+        if busy_is_stale(state.get("busy")):
+            stale = state["busy"]
+            state["busy"] = None
+            log_event(state, "unlocked", f"Cleared a stale busy flag ({stale.get('what')}): its process is gone or it ran over "
+                                         f"{BUSY_TTL // 60} minutes")
+
+    @contextmanager
+    def _claim(self, prepare: Callable[[dict], str]) -> Iterator[None]:
+        """Check-and-set `busy` in one transaction, so the CLI and the Lab can't both start a sequence.
+
+        `prepare(state)` checks the state (raising StewardError to refuse) and returns what Darwin is doing.
+        `busy` is cleared on any exit, Ctrl-C included.
+        """
+        token = uuid.uuid4().hex
+        with self.store.transaction() as s:
+            self._expire_busy(s)
+            if s.get("busy"):
+                raise StewardError(f"busy: {s['busy']['what']} (`darwin unlock` clears it if that is stuck)")
+            what = prepare(s)
+            s["busy"] = {"what": what, "since": _now(), "pid": os.getpid(), "token": token}
+        try:
+            yield
+        finally:
+            with self.store.transaction() as s:
+                if (s.get("busy") or {}).get("token") == token:
+                    s["busy"] = None
+
+    def _busy_now(self, state: dict) -> dict | None:
+        busy = state.get("busy")
+        return None if busy_is_stale(busy) else busy
 
     def _feature(self) -> dict:
         """The feature's id plus this environment's live value and variant weights.
@@ -187,18 +247,18 @@ class Steward:
         if goal not in GOALS:
             raise StewardError(f"unknown goal {goal!r}; use one of {', '.join(GOALS)}")
         taken = self._variant_keys()
-        with self.store.transaction() as s:
+        ctx: dict = {}
+
+        def prepare(s: dict) -> str:
             if s["experiment"]:
                 raise StewardError("an experiment is running — decide it before proposing the next generation")
             if s["pending"]:
                 raise StewardError("a proposal is already waiting for approval")
-            if s["busy"]:
-                raise StewardError(f"busy: {s['busy']['what']}")
-            champion = self._champion(s)
-            name = self._next_name(s, taken)
-            history = self._history_lines(s)
-            s["busy"] = {"what": f"The Coach is reading {champion.name}'s conversations", "since": _now()}
-        try:
+            ctx.update(champion=self._champion(s), name=self._next_name(s, taken), history=self._history_lines(s))
+            return f"The Coach is reading {ctx['champion'].name}'s conversations"
+
+        with self._claim(prepare):
+            champion, name, history = ctx["champion"], ctx["name"], ctx["history"]
             rows = transcripts.load(self.transcripts_path, generation=champion.name)
             if not rows:
                 raise StewardError(f"no conversations for {champion.name} yet — run a round of traffic first")
@@ -217,18 +277,13 @@ class Steward:
             request_path = self.proposals_dir / f"{name}-request.md"
             request_path.write_text(request)
             card = self._launch_card(champion, genome, proposal, goal, stats, len(failed) + len(ok), coach_cost, request_path)
-        except Exception:
             with self.store.transaction() as s:
-                s["busy"] = None
-            raise
-        with self.store.transaction() as s:
-            s["generations"][name] = {"genome": genome.model_dump(), "status": "proposed", "born_at": _now(),
-                                      "parent": champion.name, "goal": goal, "summary": genome.summary}
-            s["pending"] = card
-            s["busy"] = None
-            log_event(s, "proposed", f"Coach proposed {name}: {genome.summary}", "coach", generation=name,
-                      chats_read=card["chats_read"], coach_cost_usd=card["coach_cost_usd"],
-                      expected_effect=card["proposal"]["expected_effect"])
+                s["generations"][name] = {"genome": genome.model_dump(), "status": "proposed", "born_at": _now(),
+                                          "parent": champion.name, "goal": goal, "summary": genome.summary}
+                s["pending"] = card
+                log_event(s, "proposed", f"Coach proposed {name}: {genome.summary}", "coach", generation=name,
+                          chats_read=card["chats_read"], coach_cost_usd=card["coach_cost_usd"],
+                          expected_effect=card["proposal"]["expected_effect"])
         return card
 
     def _expected(self, state: dict, name: str) -> str | None:
@@ -248,6 +303,7 @@ class Steward:
             raise StewardError(f"unknown goal {goal!r}; use one of {', '.join(GOALS)}")
         taken = self._variant_keys()
         with self.store.transaction() as s:
+            self._expire_busy(s)
             if s["experiment"] or s["pending"] or s["busy"]:
                 raise StewardError("finish the running experiment or pending card first")
             champion = self._champion(s)
@@ -471,27 +527,28 @@ class Steward:
 
     # ------------------------------------------------------------------ human actions
     def approve(self, actor: str, card_id: str | None = None) -> dict:
-        s = self.store.read()
-        card = s["pending"]
-        if not card:
-            raise StewardError("nothing is waiting for approval")
-        if card_id and card["id"] != card_id:
-            raise StewardError("that card has been replaced; review the new one")
-        if s.get("busy"):
-            raise StewardError(f"busy: {s['busy']['what']}")
-        with self.store.transaction() as st:
-            st["busy"] = {"what": f"Running {len(card['commands'])} Flagsmith commands for {actor}", "since": _now()}
-        try:
+        ctx: dict = {}
+
+        def prepare(s: dict) -> str:
+            card = s["pending"]
+            if not card:
+                raise StewardError("nothing is waiting for approval")
+            if card_id and card["id"] != card_id:
+                raise StewardError("that card has been replaced; review the new one")
+            ctx["card"] = card
+            return f"Running {len(card['commands'])} Flagsmith commands for {actor}"
+
+        with self._claim(prepare):
+            card = ctx["card"]
             return self._launch(card, actor) if card["kind"] == "launch" else self._decide(card, actor)
-        finally:
-            with self.store.transaction() as st:
-                st["busy"] = None
 
     def reject(self, actor: str, note: str | None = None) -> dict | None:
         s = self.store.read()
         card = s["pending"]
         if not card:
             raise StewardError("nothing is waiting for approval")
+        if self._busy_now(s):
+            raise StewardError(f"busy: {s['busy']['what']}")
         if card["kind"] == "decision":
             with self.store.transaction() as st:
                 st["experiment"]["dismissed"] = card["verdict"]
@@ -509,10 +566,16 @@ class Steward:
         return None
 
     def _revise(self, card: dict, note: str, actor: str) -> dict:
-        with self.store.transaction() as st:
-            st["busy"] = {"what": f"The Coach is revising {card['challenger']}", "since": _now()}
-            champion = self._champion(st)
-        try:
+        ctx: dict = {}
+
+        def prepare(s: dict) -> str:
+            if not s["pending"] or s["pending"]["id"] != card["id"]:
+                raise StewardError("that card has been replaced; review the new one")
+            ctx["champion"] = self._champion(s)
+            return f"The Coach is revising {card['challenger']}"
+
+        with self._claim(prepare):
+            champion = ctx["champion"]
             request = Path(card["request_path"]).read_text()
             previous = Proposal.model_validate(card["proposal"])
             spent_before = self.claude.ledger.snapshot()["spent_usd"]
@@ -522,14 +585,11 @@ class Steward:
             new = self._launch_card(champion, genome, proposal, card["goal"], card["stats"], card["chats_read"], cost,
                                     Path(card["request_path"]))
             new["revision_of"], new["review_note"] = card["id"], note
-        finally:
             with self.store.transaction() as st:
-                st["busy"] = None
-        with self.store.transaction() as st:
-            st["generations"][genome.name].update(genome=genome.model_dump(), summary=genome.summary)
-            st["pending"] = new
-            log_event(st, "revised", f"{actor} asked for changes (“{note}”); the Coach revised {genome.name}", actor,
-                      generation=genome.name)
+                st["generations"][genome.name].update(genome=genome.model_dump(), summary=genome.summary)
+                st["pending"] = new
+                log_event(st, "revised", f"{actor} asked for changes (“{note}”); the Coach revised {genome.name}", actor,
+                          generation=genome.name)
         self.notebook.rejected(card["challenger"], actor, note)
         return new
 
@@ -566,9 +626,24 @@ class Steward:
             log_event(st, "rollback", f"{actor} rolled {self.flag} back to {generation}", actor, generation=generation)
         return {"champion": generation}
 
+    def unlock(self, actor: str) -> dict | None:
+        """Clear `busy` by hand. Darwin clears it itself when its process exits or after 15 minutes."""
+        with self.store.transaction() as st:
+            busy = st.get("busy")
+            st["busy"] = None
+            if busy:
+                log_event(st, "unlocked", f"{actor} cleared the busy flag ({busy.get('what')})", actor)
+        if busy:
+            busy = dict(busy, alive=_pid_alive(busy.get("pid")) if busy.get("pid") else None)
+        return busy
+
     # ------------------------------------------------------------------ views
     def status(self) -> dict:
         s = self.store.read()
+        if busy_is_stale(s.get("busy")):
+            with self.store.transaction() as st:
+                self._expire_busy(st)
+            s = self.store.read()
         lineage = []
         for name, g in sorted(s["generations"].items(), key=lambda kv: int(kv[0][3:]) if kv[0][3:].isdigit() else 0):
             lineage.append({"name": name, "status": g["status"], "parent": g.get("parent"), "summary": g.get("summary"),
