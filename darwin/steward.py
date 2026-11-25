@@ -99,8 +99,8 @@ class Steward:
         return feature
 
     def _stats(self, state: dict, name: str) -> dict:
-        since = state["generations"][name].get("became_champion_at") or state["generations"][name].get("born_at")
-        return transcripts.stats(transcripts.load(self.transcripts_path, generation=name, since=since))
+        # A genome never changes, so every chat it served — as challenger or champion — is evidence about it.
+        return transcripts.stats(transcripts.load(self.transcripts_path, generation=name))
 
     # ------------------------------------------------------------------ init
     def init(self, gen1: Genome, actor: str = "darwin") -> list[str]:
@@ -148,11 +148,10 @@ class Steward:
                 raise StewardError(f"busy: {s['busy']['what']}")
             champion = self._champion(s)
             name = self._next_name(s)
-            since = s["generations"][champion.name].get("became_champion_at")
             history = self._history_lines(s)
             s["busy"] = {"what": f"The Coach is reading {champion.name}'s conversations", "since": _now()}
         try:
-            rows = transcripts.load(self.transcripts_path, generation=champion.name, since=since)
+            rows = transcripts.load(self.transcripts_path, generation=champion.name)
             if not rows:
                 raise StewardError(f"no conversations for {champion.name} yet — run a round of traffic first")
             stats = transcripts.stats(rows)
@@ -461,13 +460,16 @@ class Steward:
                             "prompt_chars": len(g["genome"]["system_prompt"]), "result": g.get("result"),
                             "experiment_id": g.get("experiment_id"), "stats": self._stats(s, name)})
         journal = self.admin.journal()
+        refresh = lambda j: "recompute" in j.get("summary", "") or "recount" in j.get("summary", "")  # noqa: E731
+        changes = [j for j in journal if not refresh(j)]
         return {
             "flag": self.flag, "champion": s["champion"], "lineage": lineage, "experiment": s["experiment"],
             "pending": s["pending"], "busy": s["busy"], "history": s["history"][-40:],
             "spend": self.claude.ledger.snapshot(),
-            "activity": {"flagsmith_writes": sum(1 for j in journal if j.get("ok")),
+            "activity": {"flagsmith_writes": sum(1 for j in changes if j.get("ok")),
+                         "results_refreshes": sum(1 for j in journal if refresh(j) and j.get("ok")),
                          "chats_read_by_coach": sum(e.get("chats_read", 0) for e in s["history"] if e["kind"] == "proposed"),
                          "coach_cost_usd": round(sum(e.get("coach_cost_usd", 0) for e in s["history"] if e["kind"] == "proposed"), 4),
-                         "recent_commands": journal[-12:]},
+                         "recent_commands": changes[-12:]},
             "links": {"flag": self.settings.flag_url(), "dashboard": self.settings.flagsmith_dashboard_url},
         }

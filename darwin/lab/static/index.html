@@ -222,12 +222,21 @@ function armValue(m, arm) {
   const a = m.arms[arm]; if (!a || !a.n) return "–";
   return m.aggregation === "occurrence" ? pct(a.mean) : `$${(a.mean / 1e6).toFixed(5)}`;
 }
-function ciBar(inf, lowerBetter) {
+const GUARD_COLOR = { ok: "var(--accent)", watch: "var(--amber)", breach: "var(--red)", no_data: "var(--faint)" };
+function ciBar(inf, lowerBetter, guard) {
   if (!inf) return `<div class="small faint">Not enough data yet (Flagsmith needs 50 chats and 5 conversions per arm)</div>`;
   const span = Math.max(0.25, Math.abs(inf.ci_low), Math.abs(inf.ci_high)) * 1.1;
   const x = (v) => 50 + (v / span) * 50;
   const good = lowerBetter ? inf.lift < 0 : inf.lift > 0;
-  const color = inf.chance_to_win >= 0.95 ? "var(--accent)" : inf.chance_to_win <= 0.05 ? "var(--red)" : "var(--amber)";
+  const color = guard ? GUARD_COLOR[guard.state] : inf.chance_to_win >= 0.95 ? "var(--accent)" : inf.chance_to_win <= 0.05 ? "var(--red)" : "var(--amber)";
+  if (guard) {
+    const verdict = { ok: "within limits", watch: "watch: probably worse", breach: "breach: worse beyond the allowed limit", no_data: "not enough data" }[guard.state];
+    return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
+      <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
+      <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>
+    <div class="row small" style="justify-content:space-between"><span>change <b>${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
+    <span style="color:${color};font-weight:600">${verdict}</span></div>`;
+  }
   return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
       <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
       <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>
@@ -262,7 +271,7 @@ function renderExperiment(s) {
         <span class="small mono">${armValue(m, arm)} <span class="faint">n=${a.n}</span></span>`;
     }).join("");
     return `<div class="metric"><div class="mh"><b>${esc(METRIC_LABEL[k] || k)}<span class="role">${i ? "guardrail" : "primary"} · ${esc(m.expected_direction.replace("_", " "))}</span></b></div>
-      <div class="arms">${arms}</div>${ciBar(m.inference, lower)}</div>`;
+      <div class="arms">${arms}</div>${ciBar(m.inference, lower, i ? (d && d.guardrails || []).find((g) => g.metric === k) : null)}</div>`;
   }).join("") : `<div class="empty">Waiting for Flagsmith's first results…</div>`;
   const srm = r && r.srm_p_value != null ? `SRM p=${r.srm_p_value.toFixed(2)} ${r.srm_p_value < 0.001 ? '<b class="bad">split broken</b>' : '<span class="good">split healthy</span>'} <span class="faint">(${esc(r.srm_source)})</span>` : "SRM: not enough traffic yet";
   const exposed = r ? Object.entries(r.exposures).map(([k, v]) => `${esc(k === "control" ? e.champion : k)} ${v}`).join(" · ") : "";
@@ -347,7 +356,7 @@ function renderCard(s) {
 function renderActivity(s) {
   const a = s.activity, shipped = s.lineage.filter((g) => g.result && g.result.verdict === "SHIP").length;
   $("activity-stats").innerHTML = `
-    <div class="stat"><b>${a.flagsmith_writes}</b><span>Flagsmith changes made for you</span></div>
+    <div class="stat"><b>${a.flagsmith_writes}</b><span>Flagsmith changes made for you (+${a.results_refreshes} results refreshes)</span></div>
     <div class="stat"><b>${a.chats_read_by_coach}</b><span>conversations read by the Coach</span></div>
     <div class="stat"><b>${shipped}</b><span>generations shipped</span></div>`;
   $("history").innerHTML = s.history.slice().reverse().map((h) => `<li><time>${clock(h.ts)}</time><span>${esc(h.text)}</span></li>`).join("") || `<li><span class="muted">Nothing yet.</span></li>`;
