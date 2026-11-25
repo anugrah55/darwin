@@ -339,6 +339,7 @@ function renderCard(s) {
       <div class="section"><details><summary class="label" style="cursor:pointer">Prompt diff <span class="good">+${c.diff.lines_added}</span> <span class="bad">−${c.diff.lines_removed}</span></summary>
         <div class="diff mono">${diffHtml(c.diff.prompt_diff)}</div></details></div>
       ${c.plan ? `<div class="section"><div class="label">What decides it</div><ul class="plain small">${c.plan.rules.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${c.cost && c.cost.text ? `<div class="section small ${c.cost.fits === false ? "bad" : "muted"}">${esc(c.cost.text)}${c.cost.fits === false ? " — over budget: approval will refuse" : ""}</div>` : ""}
       <div class="section small muted"><b>Risk:</b> ${esc(p.risks)} · Experiment metrics: ${esc(c.metrics.join(", "))} · Coach cost $${(c.coach_cost_usd || 0).toFixed(3)}</div>`;
   } else {
     body = `<div class="card-title"><h3>${esc(c.verdict === "SHIP" ? `Ship ${c.challenger}?` : c.verdict === "KILL" ? `Kill ${c.challenger}?` : `Discard ${c.challenger}?`)}</h3>

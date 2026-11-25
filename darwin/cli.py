@@ -33,10 +33,12 @@ def actor_of(args) -> str:
     return getattr(args, "actor", None) or os.environ.get("DARWIN_APPROVER") or getpass.getuser()
 
 
-def steward():
+def steward(**overrides):
+    from dataclasses import replace
+
     from .steward import Steward
 
-    return Steward(Settings.load())
+    return Steward(replace(Settings.load(), **overrides))
 
 
 def pct(x) -> str:
@@ -78,6 +80,9 @@ def print_card(card: dict) -> None:
             print(bar + bold("What decides it"))
             for rule in card["plan"]["rules"]:
                 print(bar + f"  • {rule}")
+        cost = card.get("cost") or {}
+        if cost.get("text"):
+            print(bar + (red(cost["text"] + " — over budget") if cost.get("fits") is False else cost["text"]))
     else:
         color = VERDICT_COLOR.get(card["verdict"], bold)
         print(bold(f"┌ Decision on experiment #{card['experiment_id']}: ") + color(card["verdict"]))
@@ -151,14 +156,15 @@ def cmd_round(args) -> None:
 
 def cmd_evolve(args) -> None:
     print(f"The Coach is reading the champion's conversations (goal: {args.goal}) …")
-    card = steward().propose(goal=args.goal, actor=actor_of(args))
+    card = steward(**({"allow_model_change": True} if args.allow_model_change else {})).propose(goal=args.goal, actor=actor_of(args))
     print_card(card)
 
 
 def cmd_propose(args) -> None:
     prompt = Path(args.prompt_file).read_text()
-    card = steward().propose_manual(system_prompt=prompt, goal=args.goal, summary=args.summary, hypothesis=args.hypothesis,
-                                    actor=actor_of(args), effort=args.effort, model=args.model)
+    s = steward(**({"allow_model_change": True} if args.allow_model_change else {}))
+    card = s.propose_manual(system_prompt=prompt, goal=args.goal, summary=args.summary, hypothesis=args.hypothesis,
+                            actor=actor_of(args), effort=args.effort, model=args.model)
     print_card(card)
 
 
@@ -348,6 +354,8 @@ def main(argv: list[str] | None = None) -> None:
     r.add_argument("--scenario")
     e = add("evolve", cmd_evolve, "ask the Coach for a challenger")
     e.add_argument("--goal", choices=["quality", "cost"], default="quality")
+    e.add_argument("--allow-model-change", action="store_true", help="let the Coach switch models (off by default: it can "
+                                                                     "multiply the cost per chat)")
     pr = add("propose", cmd_propose, "propose your own challenger prompt; it faces the same experiment and guardrails")
     pr.add_argument("--prompt-file", required=True)
     pr.add_argument("--goal", choices=["quality", "cost"], default="quality")
@@ -355,6 +363,7 @@ def main(argv: list[str] | None = None) -> None:
     pr.add_argument("--hypothesis", required=True)
     pr.add_argument("--effort", choices=["low", "medium", "high"])
     pr.add_argument("--model")
+    pr.add_argument("--allow-model-change", action="store_true", help="needed with --model when it differs from the champion's")
     a = add("approve", cmd_approve, "approve the waiting card (launch, ship, discard or kill)")
     a.add_argument("--yes", action="store_true", help="don't ask to type 'approve'")
     j = add("reject", cmd_reject, "reject the waiting card; with --note the Coach revises it")

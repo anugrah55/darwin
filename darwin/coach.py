@@ -42,7 +42,7 @@ behind the get_policy tool; when the chats show the agent getting a rule wrong, 
 quoting the policy text that appears in the chats. Keep the prompt clear and compact (under 5,000 characters): every \
 token in it is paid for in every conversation.
 3. Settings. Effort (low, medium or high) trades reasoning for cost: higher effort costs more per chat. Change the \
-model only if the goal requires it, and only to an allowed model.
+model only if the request says model changes are allowed and the goal requires it.
 4. State a falsifiable hypothesis and the effect you expect on the experiment's metrics.
 
 What the metrics mean: `resolved` — ShopBot handled the customer's issue correctly by itself (handing off to a human \
@@ -86,7 +86,9 @@ def _stats_text(name: str, stats: dict) -> str:
 
 
 def build_request(*, goal: str, champion: Genome, challenger_name: str, tools: list[dict], stats: dict,
-                  history: list[str], failed: list[dict], succeeded: list[dict]) -> str:
+                  history: list[str], failed: list[dict], succeeded: list[dict], allow_model_change: bool = False) -> str:
+    models = (f"Allowed models: {', '.join(ALLOWED_MODELS)}." if allow_model_change else
+              f"Keep the model {champion.model}: model changes are turned off for this run.")
     parts = [
         f"## Goal\n{GOALS.get(goal, goal)}",
         f"## Current champion: {champion.name}\nModel: {champion.model}. Effort: {champion.effort}.\n"
@@ -97,13 +99,18 @@ def build_request(*, goal: str, champion: Genome, challenger_name: str, tools: l
         f"## Failed conversations ({len(failed)})\n" + ("\n\n".join(render(r, i + 1) for i, r in enumerate(failed)) or "None."),
         f"## Successful conversations, for contrast ({len(succeeded)})\n"
         + ("\n\n".join(render(r, len(failed) + i + 1) for i, r in enumerate(succeeded)) or "None."),
-        f"Write the challenger \"{challenger_name}\". Allowed models: {', '.join(ALLOWED_MODELS)}.",
+        f"Write the challenger \"{challenger_name}\". {models}",
     ]
     return "\n\n".join(parts)
 
 
-def check_proposal(p: Proposal, parent: Genome, goal: str) -> list[str]:
+def check_proposal(p: Proposal, parent: Genome, goal: str, *, allow_model_change: bool = False) -> list[str]:
+    """Darwin's guards on any challenger, the Coach's or a human's. A model change can multiply the cost per chat,
+    so it is refused unless explicitly allowed (DARWIN_ALLOW_MODEL_CHANGE=1 or --allow-model-change)."""
     problems = []
+    if p.model != parent.model and not allow_model_change:
+        problems.append(f"it changes the model ({parent.model} → {p.model}), and model changes are off; set "
+                        f"DARWIN_ALLOW_MODEL_CHANGE=1 or pass --allow-model-change to allow them")
     if len(p.system_prompt) > MAX_COACH_PROMPT_CHARS:
         problems.append(f"system prompt is {len(p.system_prompt):,} chars (limit {MAX_COACH_PROMPT_CHARS:,})")
     if p.system_prompt.strip() == parent.system_prompt.strip() and p.effort == parent.effort and p.model == parent.model:
@@ -116,10 +123,11 @@ def check_proposal(p: Proposal, parent: Genome, goal: str) -> list[str]:
 
 
 class Coach:
-    def __init__(self, claude: Claude, model: str = "claude-opus-5-5", effort: str = "high"):
+    def __init__(self, claude: Claude, model: str = "claude-opus-5-5", effort: str = "high", allow_model_change: bool = False):
         self.claude = claude
         self.model = model
         self.effort = effort
+        self.allow_model_change = allow_model_change
 
     def _call(self, messages: list[dict]) -> Proposal:
         response = self.claude.parse(
@@ -142,9 +150,9 @@ class Coach:
     def propose(self, *, goal: str, champion: Genome, challenger_name: str, tools: list[dict], stats: dict,
                 history: list[str], failed: list[dict], succeeded: list[dict]) -> tuple[Proposal, str]:
         request = build_request(goal=goal, champion=champion, challenger_name=challenger_name, tools=tools, stats=stats,
-                                history=history, failed=failed, succeeded=succeeded)
+                                history=history, failed=failed, succeeded=succeeded, allow_model_change=self.allow_model_change)
         proposal = self._call([{"role": "user", "content": request}])
-        problems = check_proposal(proposal, champion, goal)
+        problems = check_proposal(proposal, champion, goal, allow_model_change=self.allow_model_change)
         if problems:
             raise CoachError("proposal failed Darwin's checks: " + "; ".join(problems))
         return proposal, request
@@ -157,7 +165,7 @@ class Coach:
                                         "Revise the proposal to address the note. Return the complete revised proposal."},
         ]
         proposal = self._call(messages)
-        problems = check_proposal(proposal, champion, goal)
+        problems = check_proposal(proposal, champion, goal, allow_model_change=self.allow_model_change)
         if problems:
             raise CoachError("revised proposal failed Darwin's checks: " + "; ".join(problems))
         return proposal

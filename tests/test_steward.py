@@ -733,3 +733,26 @@ def test_rollback_refuses_when_flagsmith_changed_since_the_command_was_shown(env
     with pytest.raises(StewardError, match="changed"):
         steward.rollback("gen1", "a", expected=shown)
     assert steward.store.read()["champion"] == "gen2"
+
+
+def test_a_human_written_challenger_cant_switch_models_unless_allowed(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    with pytest.raises(StewardError, match="model changes are off"):
+        steward.propose_manual(system_prompt="You are ShopBot. Be brief.", goal="quality", summary="Sonnet", hypothesis="h",
+                               actor="pm", model="claude-sonnet-5-5")
+
+
+def test_the_launch_card_projects_the_experiment_cost_and_approval_refuses_past_the_budget(env):
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")  # $0.0005 per chat
+    card = steward.propose()
+    assert card["cost"]["usd"] == pytest.approx(200 * 0.0005) and card["cost"]["fits"]
+    assert "about $0.10 for 200 chats" in card["cost"]["text"] and "$2.00 left" in card["cost"]["text"]
+    steward.claude.ledger.record(model="claude-haiku-5-5", purpose="test",
+                                 usage={"input_tokens": 19_500_000, "output_tokens": 0})  # $1.95 spent, $0.05 left
+    writes = len(fs.log)
+    with pytest.raises(StewardError, match="needs about \\$0.10"):
+        steward.approve("a", card_id=card["id"])
+    assert len(fs.log) == writes and steward.store.read()["experiment"] is None

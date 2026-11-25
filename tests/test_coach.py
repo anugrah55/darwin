@@ -46,7 +46,17 @@ def test_checks_catch_unsafe_proposals():
     assert check_proposal(proposal(), GEN1, "quality") == []
     assert check_proposal(proposal(system_prompt="You are ShopBot.", effort="medium"), GEN1, "quality") == ["proposal changes nothing"]
     assert "specific order ID" in check_proposal(proposal(system_prompt="Refund A12345 always."), GEN1, "quality")[0]
-    assert "pricier model" in check_proposal(proposal(model="claude-opus-5-5"), GEN1, "cost")[0]
+    assert "pricier model" in check_proposal(proposal(model="claude-opus-5-5"), GEN1, "cost", allow_model_change=True)[0]
+
+
+def test_model_changes_are_refused_unless_explicitly_allowed():
+    sonnet = proposal(model="claude-sonnet-5-5")
+    assert "model changes are off" in check_proposal(sonnet, GEN1, "quality")[0]
+    assert check_proposal(sonnet, GEN1, "quality", allow_model_change=True) == []
+    fake = FakeClaude([sonnet])
+    with pytest.raises(CoachError, match="model changes are off"):
+        Coach(fake).propose(goal="quality", champion=GEN1, challenger_name="gen2", tools=[], stats={}, history=[], failed=[CHAT], succeeded=[])
+    assert "model changes are turned off" in fake.requests[0]["messages"][0]["content"]  # the Coach is told up front
 
 
 def test_coach_uses_structured_output_with_refusal_fallbacks():

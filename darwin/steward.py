@@ -19,7 +19,7 @@ from .coach import GOALS, Coach, Proposal, dumps, proposal_to_genome
 from .config import Settings
 from .flagsmith_admin import Command, FlagsmithAdmin, FlagsmithError, Throttled
 from .genome import Genome, GenomeError
-from .llm import Claude, make_claude
+from .llm import Claude, make_claude, price_of
 from .notebook import Notebook
 from .results import CONTROL, parse_readout
 from .rules import DISCARD, KILL, LABELS, SHIP, DecisionPolicy, Guardrail, decide
@@ -109,7 +109,7 @@ class Steward:
         self.flag = settings.flag
         self.admin = admin or FlagsmithAdmin(settings)
         self.claude = claude or make_claude(settings.data_dir, settings.budget_usd)
-        self.coach = coach or Coach(self.claude, model=settings.coach_model)
+        self.coach = coach or Coach(self.claude, model=settings.coach_model, allow_model_change=settings.allow_model_change)
         self.store = store or StateStore(settings.data_dir / "lab.json", settings.flag)
         self.notebook = notebook or Notebook(settings.notebook_path, settings.flag)
         self.transcripts_path = transcripts_path or settings.data_dir / "transcripts.jsonl"
@@ -328,7 +328,7 @@ class Steward:
         proposal = Proposal(patterns=[], hypothesis=hypothesis, expected_effect=f"Proposed by {actor}; not predicted by the Coach.",
                             changes_summary=[f"Prompt written by {actor}"], risks="Not reviewed by the Coach.", summary=summary,
                             system_prompt=system_prompt, effort=effort or champion.effort, model=model or champion.model)
-        problems = check_proposal(proposal, champion, goal)
+        problems = check_proposal(proposal, champion, goal, allow_model_change=self.settings.allow_model_change)
         if problems:
             raise StewardError("proposal failed Darwin's checks: " + "; ".join(problems))
         genome = proposal_to_genome(proposal, champion, name)
@@ -364,7 +364,41 @@ class Steward:
             "commands": [c.to_dict() for c in self._launch_plan(champion, genome, goal, proposal.hypothesis, card_id=card_id)],
             "metrics": [f"{m} ({d.replace('_', ' ')})" for m, d in EXPERIMENT_METRICS[goal]],
             "plan": self._experiment_plan(goal),
+            "cost": self._projected_cost(champion, genome, stats),
         }
+
+    def _projected_cost(self, champion: Genome, challenger: Genome, stats: dict) -> dict:
+        """An estimate of what the planned experiment costs in Claude calls: the planned chats per arm times the
+        champion's observed cost per chat, scaled by the model price ratio for the challenger. Effort and prompt
+        length changes aren't priced in."""
+        per_arm = self.settings.min_per_arm
+        snap = self.claude.ledger.snapshot()
+        out = {"per_arm": per_arm, "chats": 2 * per_arm, "usd": None, "remaining_usd": snap["remaining_usd"],
+               "cap_usd": snap["cap_usd"]}
+        per_chat = (stats or {}).get("avg_cost_usd")
+        if not per_chat:
+            out["text"] = f"Projected Claude cost: unknown ({champion.name} has no chats yet) · ${snap['remaining_usd']:.2f} " \
+                          f"of ${snap['cap_usd']:.2f} left"
+            return out
+        ratio = max(price_of(challenger.model)[i] / price_of(champion.model)[i] for i in (0, 1))
+        usd = per_arm * per_chat * (1 + ratio)
+        out.update(usd=round(usd, 4), ratio=round(ratio, 3), per_chat_usd=per_chat, fits=usd <= snap["remaining_usd"])
+        model = f", ×{ratio:g} for {challenger.model}" if ratio != 1 else ""
+        out["text"] = (f"Projected Claude cost: about ${usd:.2f} for {2 * per_arm} chats (estimate: ${per_chat:.5f} per chat"
+                       f"{model}) · ${snap['remaining_usd']:.2f} of ${snap['cap_usd']:.2f} left")
+        return out
+
+    def _check_budget(self, card: dict) -> None:
+        """Refuse a launch whose planned traffic would run past the Claude budget (only when the cost is known)."""
+        champion, challenger = Genome.model_validate(self._genome_dict(card["champion"])), Genome.model_validate(card["genome"])
+        cost = self._projected_cost(champion, challenger, card.get("stats") or {})
+        if cost["usd"] is not None and not cost["fits"]:
+            raise StewardError(f"This experiment needs about ${cost['usd']:.2f} of Claude calls ({cost['chats']} chats), but only "
+                               f"${cost['remaining_usd']:.2f} of the ${cost['cap_usd']:.2f} budget is left. Raise "
+                               f"DARWIN_BUDGET_USD or lower DARWIN_MIN_PER_ARM, then approve again. Nothing ran.")
+
+    def _genome_dict(self, name: str) -> dict:
+        return self.store.read()["generations"][name]["genome"]
 
     def _experiment_plan(self, goal: str) -> dict:
         """What will decide the experiment, fixed at launch: the sample per arm and every rule."""
@@ -426,6 +460,7 @@ class Steward:
                            f"Complete or delete it in Flagsmith, then approve again.")
 
     def _launch(self, card: dict, actor: str) -> dict:
+        self._check_budget(card)
         s = self.store.read()
         champion = self._champion(s)
         challenger = Genome.model_validate(card["genome"])

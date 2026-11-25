@@ -57,6 +57,7 @@ class Settings:
     lab_port: int
     notebook_path: Path
     min_per_arm: int = 100  # chats per arm an experiment plans for before Darwin calls a winner or a loser
+    allow_model_change: bool = False  # may a challenger switch models? Off by default: it can multiply the cost per chat
 
     @classmethod
     def load(cls) -> Settings:
@@ -92,6 +93,7 @@ class Settings:
             lab_port=int(env("DARWIN_LAB_PORT", "8200")),
             notebook_path=Path(env("DARWIN_NOTEBOOK", str(ROOT / "LAB_NOTEBOOK.md"))),
             min_per_arm=int(env("DARWIN_MIN_PER_ARM", "100")),
+            allow_model_change=env("DARWIN_ALLOW_MODEL_CHANGE", "").strip().lower() in ("1", "true", "yes"),
         )
 
     def cli_env(self) -> dict[str, str]:
