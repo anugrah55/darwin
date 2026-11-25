@@ -72,7 +72,14 @@ def _rate(metric: MetricReadout, arm: str) -> str:
     a = metric.arms.get(arm)
     if not a or not a.n:
         return "–"
-    return f"{a.mean * 100:.0f}%" if metric.aggregation == "occurrence" else f"{a.mean:,.0f}"
+    if metric.aggregation == "occurrence":
+        return f"{a.mean * 100:.0f}%"
+    if metric.name.endswith("_microusd"):
+        return f"${a.mean / 1_000_000:.5f}"
+    return f"{a.mean:,.0f}"
+
+
+LABELS = {"resolved": "resolved", "escalated": "handed to a human", "cost_microusd": "cost per chat"}
 
 
 def _guardrail(readout: Readout, g: Guardrail) -> GuardrailStatus:
@@ -119,15 +126,18 @@ def decide(readout: Readout | None, policy: DecisionPolicy = DecisionPolicy(), *
                         guardrails)
 
     inf = primary.inference
-    vs = f"{_rate(primary, challenger)} vs {_rate(primary, CONTROL)} for {champion}"
-    stats = f"lift {_pct(inf.lift)}, 95% CI {_pct(inf.ci_low)} … {_pct(inf.ci_high)}, {inf.chance_to_win:.1%} chance to win"
-    reasons = [f"{policy.primary}: {challenger} {vs} ({stats})"] + [g.text for g in guardrails]
+    label = LABELS.get(policy.primary, policy.primary)
+    better = "lower" if primary.lower_is_better else "better"
+    vs = f"{label} {_rate(primary, challenger)} vs {_rate(primary, CONTROL)} for {champion}"
+    stats = f"{_pct(inf.lift)}, 95% CI {_pct(inf.ci_low)} … {_pct(inf.ci_high)}, {inf.chance_to_win:.1%} chance it's {better}"
+    reasons = [f"{challenger}: {vs} ({stats})"] + [g.text for g in guardrails]
 
     breaches = [g for g in guardrails if g.state == "breach"]
     if breaches:
         return Decision(KILL, f"Kill {challenger}: it makes {breaches[0].label} worse.", reasons, guardrails, "control")
     if inf.chance_to_win >= policy.ship_at:
-        return Decision(SHIP, f"Ship {challenger}: {vs}, {inf.chance_to_win:.1%} chance to win.", reasons, guardrails, "variant")
+        return Decision(SHIP, f"Ship {challenger}: {vs} ({_pct(inf.lift)}), {inf.chance_to_win:.1%} chance it's {better}.",
+                        reasons, guardrails, "variant")
     if inf.chance_to_win <= policy.discard_at:
         return Decision(DISCARD, f"Discard {challenger}: it does worse than {champion} ({inf.chance_to_win:.1%} chance to win).",
                         reasons, guardrails, "control")

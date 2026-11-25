@@ -201,8 +201,17 @@ class Steward:
             s["pending"] = card
             s["busy"] = None
             log_event(s, "proposed", f"Coach proposed {name}: {genome.summary}", "coach", generation=name,
-                      chats_read=card["chats_read"], coach_cost_usd=card["coach_cost_usd"])
+                      chats_read=card["chats_read"], coach_cost_usd=card["coach_cost_usd"],
+                      expected_effect=card["proposal"]["expected_effect"])
         return card
+
+    def _expected(self, state: dict, name: str) -> str | None:
+        if state["generations"].get(name, {}).get("expected_effect"):
+            return state["generations"][name]["expected_effect"]
+        for event in reversed(state["history"]):
+            if event.get("kind") == "proposed" and event.get("generation") == name:
+                return event.get("expected_effect")
+        return None
 
     def _history_lines(self, state: dict) -> list[str]:
         lines = []
@@ -274,7 +283,8 @@ class Steward:
             self.admin.run(self.admin.cmd_start(experiment_id))
         with self.store.transaction() as st:
             gen = st["generations"][challenger.name]
-            gen.update(status="challenger", option_id=option_id, experiment_id=experiment_id, launched_at=_now(), launched_by=actor)
+            gen.update(status="challenger", option_id=option_id, experiment_id=experiment_id, launched_at=_now(), launched_by=actor,
+                       hypothesis=card["proposal"]["hypothesis"], expected_effect=card["proposal"]["expected_effect"])
             st["experiment"] = {"id": experiment_id, "champion": champion.name, "challenger": challenger.name,
                                 "goal": card["goal"], "split": {CONTROL: (100 - SPLIT) / 100, challenger.name: SPLIT / 100},
                                 "started_at": _now(), "launched_by": actor, "option_id": option_id,
@@ -375,7 +385,8 @@ class Steward:
             st["pending"] = None
             log_event(st, "decided", f"{actor} approved {card['verdict']} for {e['challenger']}: {card['headline']}", actor,
                       generation=e["challenger"], experiment_id=e["id"], verdict=card["verdict"])
-        self.notebook.decided(exp["challenger"], card["verdict"], card["headline"], card["reasons"], actor, exp["id"])
+        expected = (s["pending"] or {}).get("expected") or self._expected(s, exp["challenger"])
+        self.notebook.decided(exp["challenger"], card["verdict"], card["headline"], card["reasons"], actor, exp["id"], expected)
         return {"verdict": card["verdict"], "champion": exp["challenger"] if card["verdict"] == SHIP else exp["champion"]}
 
     # ------------------------------------------------------------------ human actions

@@ -48,9 +48,12 @@ class Notebook:
             f"**Launched** experiment #{experiment_id}, approved by **{approver}**. Commands run:\n\n{commands}"
         )
 
-    def decided(self, generation: str, verdict: str, headline: str, reasons: list[str], approver: str, experiment_id: int) -> None:
+    def decided(self, generation: str, verdict: str, headline: str, reasons: list[str], approver: str, experiment_id: int,
+                expected: str | None = None) -> None:
         bullet = "\n".join(f"- {r}" for r in reasons)
-        self._append(f"### {generation}: {verdict} ({_ts()})\n\n{headline}\n\n{bullet}\n\nExperiment #{experiment_id} completed; approved by **{approver}**.")
+        predicted = f"\n\n**The Coach predicted:** {expected}  \n**Flagsmith measured:** see above." if expected else ""
+        self._append(f"### {generation}: {verdict} ({_ts()})\n\n{headline}\n\n{bullet}{predicted}\n\n"
+                     f"Experiment #{experiment_id} completed; approved by **{approver}**.")
 
     def rejected(self, generation: str, approver: str, note: str | None) -> None:
         extra = f" Note: “{note}”" if note else ""
