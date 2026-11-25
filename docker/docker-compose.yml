@@ -58,7 +58,7 @@ services:
     environment:
       <<: *flagsmith-env
     ports:
-      - '8000:8000'
+      - '127.0.0.1:8000:8000'  # local only: this stack uses a fixed secret key and a demo admin password
     depends_on:
       migrate-db:
         condition: service_completed_successfully
