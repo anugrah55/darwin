@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Darwin Lab</title>
+<style>
+  :root {
+    --bg: #f4f3ef; --panel: #ffffff; --ink: #1b1c1a; --muted: #6c6b66; --faint: #9b9a94; --line: #e3e1da;
+    --soft: #f7f6f2; --accent: #2c6e49; --accent-soft: #e3efe6; --amber: #9a6200; --amber-soft: #f7ecd6;
+    --red: #a83a2c; --red-soft: #f6e1dd; --blue: #2f5f8f; --blue-soft: #e1ebf5; --code: #f1f0ea;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121311; --panel: #1b1c1a; --ink: #ecebe5; --muted: #a3a29b; --faint: #75746e; --line: #2c2d2a;
+            --soft: #20211f; --accent: #6cc08d; --accent-soft: #1f3327; --amber: #e0a43b; --amber-soft: #3a2f1b;
+            --red: #e07a6b; --red-soft: #3b2420; --blue: #7fb0e0; --blue-soft: #1d2a38; --code: #232421; --shadow: none; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  a { color: var(--blue); text-decoration: none; } a:hover { text-decoration: underline; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 18px 16px 60px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brand h1 { margin: 0; font-size: 22px; letter-spacing: -.3px; }
+  .brand p { margin: 0; color: var(--muted); }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--panel);
+          border: 1px solid var(--line); color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .chip input { border: 0; background: transparent; color: var(--ink); font: inherit; width: 90px; outline: none; }
+  .meter { width: 70px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--accent); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 16px; min-width: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  h3 { margin: 0; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+  @media (max-width: 980px) { .grid, .grid2 { grid-template-columns: 1fr; } }
+
+  /* lineage */
+  .lineage { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; align-items: stretch; }
+  .gen { flex: 0 0 210px; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; background: var(--soft); position: relative; }
+  .gen.champion { border-color: var(--accent); background: var(--accent-soft); }
+  .gen.challenger, .gen.proposed { border-color: var(--amber); background: var(--amber-soft); }
+  .gen.killed, .gen.discarded, .gen.rejected, .gen.stopped { opacity: .62; }
+  .gen .name { display: flex; justify-content: space-between; align-items: center; font-weight: 650; }
+  .gen .sum { color: var(--muted); font-size: 12.5px; margin: 4px 0 8px; min-height: 36px; }
+  .gen .kv { display: flex; gap: 10px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .gen .kv b { color: var(--ink); }
+  .arrow { align-self: center; color: var(--faint); font-size: 18px; flex: 0 0 auto; }
+  .badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; }
+  .b-champion, .b-SHIP { background: var(--accent); color: var(--panel); }
+  .b-challenger, .b-proposed, .b-KEEP_RUNNING, .b-HOLD { background: var(--amber); color: var(--panel); }
+  .b-killed, .b-discarded, .b-KILL, .b-DISCARD, .b-stopped { background: var(--red); color: var(--panel); }
+  .b-retired, .b-rejected, .b-COLLECTING_DATA { background: var(--line); color: var(--muted); }
+
+  /* experiment */
+  .exp-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 10px; }
+  .muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: 12.5px; }
+  .verdict { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: var(--soft); margin-bottom: 14px; }
+  .metric { border-top: 1px solid var(--line); padding: 12px 0; }
+  .metric:first-of-type { border-top: 0; }
+  .metric .mh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .metric .role { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin-left: 6px; }
+  .arms { display: grid; grid-template-columns: 74px 1fr 76px; gap: 6px 10px; align-items: center; margin: 8px 0 6px; }
+  .bar { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 5px; background: var(--faint); }
+  .bar.ch i { background: var(--amber); }
+  .ci { position: relative; height: 22px; margin: 2px 0; }
+  .ci .axis { position: absolute; top: 10px; left: 0; right: 0; height: 2px; background: var(--line); }
+  .ci .zero { position: absolute; top: 3px; width: 1px; height: 16px; background: var(--faint); }
+  .ci .range { position: absolute; top: 6px; height: 10px; border-radius: 5px; opacity: .35; }
+  .ci .dot { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; border: 2px solid var(--panel); }
+  .ctw { font-variant-numeric: tabular-nums; font-weight: 650; }
+  .good { color: var(--accent); } .bad { color: var(--red); } .warn { color: var(--amber); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 9px; padding: 7px 13px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--panel); border-color: var(--accent); font-weight: 600; }
+  button.danger { color: var(--red); }
+  button:disabled { opacity: .5; cursor: default; }
+  select, textarea { font: inherit; border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; background: var(--panel); color: var(--ink); }
+  textarea { width: 100%; min-height: 64px; resize: vertical; }
+  .empty { padding: 26px 10px; text-align: center; color: var(--muted); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* card */
+  .card-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .section { margin-top: 14px; }
+  .section > .label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .pattern { border-left: 3px solid var(--amber); padding: 6px 10px; margin-bottom: 8px; background: var(--soft); border-radius: 0 8px 8px 0; }
+  .pattern .q { color: var(--muted); font-style: italic; font-size: 12.5px; }
+  .pattern .n { font-weight: 650; color: var(--amber); }
+  ul.plain { margin: 0; padding-left: 18px; }
+  .diff { max-height: 320px; overflow: auto; background: var(--code); border-radius: 10px; padding: 8px 0; }
+  .diff div { padding: 0 12px; white-space: pre-wrap; word-break: break-word; }
+  .diff .add { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .diff .del { background: color-mix(in srgb, var(--red) 14%, transparent); }
+  .diff .hunk { color: var(--faint); }
+  .cmd { background: var(--code); border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+  .cmd .s { font-size: 12.5px; color: var(--muted); margin-bottom: 3px; }
+  .cmd code { display: block; white-space: pre-wrap; word-break: break-all; }
+  .cmd details pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+  .actions { position: sticky; bottom: 0; background: var(--panel); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line); }
+
+  /* activity + transcripts */
+  .tl { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; }
+  .tl li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .tl time { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .stat { background: var(--soft); border-radius: 10px; padding: 10px; }
+  .stat b { font-size: 20px; display: block; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .chat { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+  .chat summary { cursor: pointer; padding: 8px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; list-style: none; }
+  .chat summary::-webkit-details-marker { display: none; }
+  .chat .body { padding: 0 12px 10px; }
+  .chat .c, .chat .b { margin: 6px 0; padding: 7px 10px; border-radius: 10px; white-space: pre-wrap; }
+  .chat .c { background: var(--blue-soft); }
+  .chat .b { background: var(--soft); }
+  .chat .t { font-size: 12px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; margin: 2px 0 2px 10px; word-break: break-all; }
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; max-width: 380px; z-index: 5; }
+  .toast { padding: 10px 12px; border-radius: 10px; background: var(--ink); color: var(--panel); box-shadow: var(--shadow); font-size: 13px; }
+  .toast.error { background: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Darwin</h1>
+      <p>Your agent evolves. Flagsmith decides who survives. You approve every change.</p>
+    </div>
+    <div class="top" id="top"></div>
+  </header>
+
+  <section class="panel">
+    <h2>Lineage</h2>
+    <div class="lineage" id="lineage"></div>
+  </section>
+
+  <div class="grid">
+    <section class="panel" id="experiment"></section>
+    <section class="panel" id="card"></section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>What Darwin did</h2>
+      <div class="stats3" id="activity-stats"></div>
+      <ul class="tl" id="history"></ul>
+    </section>
+    <section class="panel">
+      <h2>Flagsmith commands run</h2>
+      <div id="commands"></div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">Conversations</h2>
+      <div class="row">
+        <select id="f-gen"><option value="">all generations</option></select>
+        <select id="f-out"><option value="">all outcomes</option><option value="failed">not resolved</option><option value="resolved">resolved</option></select>
+      </div>
+    </div>
+    <div id="chats"></div>
+  </section>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (x, d = 0) => (x == null ? "–" : (x * 100).toFixed(d) + "%");
+const signed = (x) => (x == null ? "–" : (x >= 0 ? "+" : "") + (x * 100).toFixed(0) + "%");
+const ago = (ts) => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
+const clock = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+let S = null, confirmFor = null, noteOpen = false, lastCardId = null, seenToasts = 0;
+const actor = () => { try { return localStorage.getItem("darwin-approver") || "you"; } catch { return "you"; } };
+
+async function post(path, body = {}) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor: actor(), ...body }) });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); toast("error", d.detail || r.statusText); }
+  setTimeout(load, 400);
+}
+function toast(kind, text) {
+  const el = document.createElement("div"); el.className = "toast " + (kind === "error" ? "error" : ""); el.textContent = text;
+  $("toasts").appendChild(el); setTimeout(() => el.remove(), 7000);
+}
+
+function renderTop(s) {
+  const sp = s.spend, used = sp.cap_usd ? Math.min(1, sp.spent_usd / sp.cap_usd) : 0;
+  $("top").innerHTML = `
+    <span class="chip">flag <b class="mono">${esc(s.flag)}</b></span>
+    <a class="chip" href="${esc(s.links.flag)}" target="_blank" rel="noopener">Flagsmith ↗</a>
+    <a class="chip" href="${esc(s.shopbot_url)}" target="_blank" rel="noopener">ShopBot chat ↗</a>
+    <span class="chip" title="Claude API spend against DARWIN_BUDGET_USD">Claude <b>$${sp.spent_usd.toFixed(3)}</b> / $${sp.cap_usd.toFixed(2)} <span class="meter"><i style="width:${used * 100}%"></i></span></span>
+    <label class="chip">approver <input id="approver" value="${esc(actor())}" aria-label="Your name, recorded with each approval"></label>`;
+  $("approver").onchange = (e) => { try { localStorage.setItem("darwin-approver", e.target.value || "you"); } catch {} };
+}
+
+function renderLineage(s) {
+  const gens = s.lineage;
+  if (!gens.length) { $("lineage").innerHTML = `<div class="empty">Run <code>darwin init</code> to register gen1.</div>`; return; }
+  $("lineage").innerHTML = gens.map((g, i) => {
+    const st = g.stats || {};
+    const res = g.result ? `<div class="small" style="margin-top:6px">${esc(g.result.headline)}</div>` : "";
+    return `${i ? '<div class="arrow">→</div>' : ""}<div class="gen ${g.status}">
+      <div class="name"><span>${esc(g.name)}</span><span class="badge b-${g.status}">${esc(g.status)}</span></div>
+      <div class="sum">${esc(g.summary || "")}</div>
+      <div class="kv"><span><b>${pct(st.resolution_rate)}</b> resolved</span><span><b>${pct(st.escalation_rate)}</b> to human</span></div>
+      <div class="kv"><span>${st.chats || 0} chats</span><span>${esc(g.model.replace("claude-", ""))} · ${esc(g.effort)}</span>${st.avg_cost_usd != null ? `<span>$${(st.avg_cost_usd * 1000).toFixed(2)} per 1k chats</span>` : ""}</div>${res}
+    </div>`;
+  }).join("");
+}
+
+const METRIC_LABEL = { resolved: "Resolved by ShopBot", escalated: "Handed to a human", cost_microusd: "Cost per chat" };
+function armValue(m, arm) {
+  const a = m.arms[arm]; if (!a || !a.n) return "–";
+  return m.aggregation === "occurrence" ? pct(a.mean) : `$${(a.mean / 1e6).toFixed(5)}`;
+}
+function ciBar(inf, lowerBetter) {
+  if (!inf) return `<div class="small faint">Not enough data yet (Flagsmith needs 50 chats and 5 conversions per arm)</div>`;
+  const span = Math.max(0.25, Math.abs(inf.ci_low), Math.abs(inf.ci_high)) * 1.1;
+  const x = (v) => 50 + (v / span) * 50;
+  const good = lowerBetter ? inf.lift < 0 : inf.lift > 0;
+  const color = inf.chance_to_win >= 0.95 ? "var(--accent)" : inf.chance_to_win <= 0.05 ? "var(--red)" : "var(--amber)";
+  return `<div class="ci"><div class="axis"></div><div class="zero" style="left:50%"></div>
+      <div class="range" style="left:${x(inf.ci_low)}%;width:${x(inf.ci_high) - x(inf.ci_low)}%;background:${color}"></div>
+      <div class="dot" style="left:${x(inf.lift)}%;background:${color}"></div></div>
+    <div class="row small" style="justify-content:space-between"><span>lift <b class="${good ? "good" : "bad"}">${signed(inf.lift)}</b> <span class="faint">(95% CI ${signed(inf.ci_low)} … ${signed(inf.ci_high)})</span></span>
+    <span>chance to win <span class="ctw" style="color:${color}">${pct(inf.chance_to_win, 1)}</span></span></div>`;
+}
+
+function renderExperiment(s) {
+  const e = s.experiment, el = $("experiment");
+  if (!e) {
+    const busy = s.busy ? `<p><span class="spinner"></span> ${esc(s.busy.what)}…</p>` : "";
+    const can = !s.pending && !s.busy && !s.working;
+    el.innerHTML = `<h2>Experiment</h2><div class="empty">
+      <p>No experiment running. ${s.champion ? `<b>${esc(s.champion)}</b> serves everyone.` : ""}</p>${busy}
+      <div class="row" style="justify-content:center">
+        <select id="goal"><option value="quality">Goal: resolve more chats</option><option value="cost">Goal: cut cost per chat</option></select>
+        <button class="primary" id="evolve" ${can ? "" : "disabled"}>Ask the Coach for a challenger</button>
+      </div>
+      <p class="small faint" style="margin-top:12px">The Coach reads ${esc(s.champion || "the champion")}'s failed conversations and proposes a new genome. Nothing changes until you approve.</p></div>`;
+    const b = $("evolve"); if (b) b.onclick = () => post("/api/evolve", { goal: $("goal").value });
+    return;
+  }
+  const r = e.readout, d = e.decision;
+  const order = e.goal === "cost" ? ["cost_microusd", "resolved", "escalated"] : ["resolved", "escalated", "cost_microusd"];
+  const metrics = r ? order.filter((k) => r.metrics[k]).map((k, i) => {
+    const m = r.metrics[k], lower = m.direction === "down";
+    const arms = ["control", e.challenger].map((arm) => {
+      const a = m.arms[arm] || { n: 0, mean: 0 };
+      const max = Math.max(...Object.values(m.arms).map((x) => x.mean || 0), 1e-9);
+      return `<span class="small">${arm === "control" ? esc(e.champion) : esc(e.challenger)}</span>
+        <div class="bar ${arm === "control" ? "" : "ch"}"><i style="width:${(a.mean / max) * 100}%"></i></div>
+        <span class="small mono">${armValue(m, arm)} <span class="faint">n=${a.n}</span></span>`;
+    }).join("");
+    return `<div class="metric"><div class="mh"><b>${esc(METRIC_LABEL[k] || k)}<span class="role">${i ? "guardrail" : "primary"} · ${esc(m.expected_direction.replace("_", " "))}</span></b></div>
+      <div class="arms">${arms}</div>${ciBar(m.inference, lower)}</div>`;
+  }).join("") : `<div class="empty">Waiting for Flagsmith's first results…</div>`;
+  const srm = r && r.srm_p_value != null ? `SRM p=${r.srm_p_value.toFixed(2)} ${r.srm_p_value < 0.001 ? '<b class="bad">split broken</b>' : '<span class="good">split healthy</span>'} <span class="faint">(${esc(r.srm_source)})</span>` : "SRM: not enough traffic yet";
+  const exposed = r ? Object.entries(r.exposures).map(([k, v]) => `${esc(k === "control" ? e.champion : k)} ${v}`).join(" · ") : "";
+  el.innerHTML = `<div class="exp-head"><h3>Experiment #${e.id} · ${esc(e.champion)} vs ${esc(e.challenger)}</h3>
+      <span class="small muted">goal ${esc(e.goal)} · running ${ago(e.started_at)} · approved by ${esc(e.launched_by)}</span></div>
+    ${d ? `<div class="verdict"><span class="badge b-${d.verdict}">${esc(d.verdict.replace("_", " "))}</span><span>${esc(d.headline)}</span></div>` : ""}
+    ${metrics}
+    <div class="row small muted" style="justify-content:space-between;margin-top:8px">
+      <span>${srm}${exposed ? ` · exposed: ${exposed}` : ""}</span>
+      <span>${r && r.as_of ? `Flagsmith results as of ${clock(Date.parse(r.as_of) / 1000)}` : ""}${e.note ? ` · ${esc(e.note)}` : ""}</span></div>
+    <div class="row" style="margin-top:12px">
+      <button id="check" ${s.working ? "disabled" : ""}>Refresh results now</button>
+      <button class="danger" id="stop" ${s.working ? "disabled" : ""}>Stop experiment</button>
+      <span class="small faint">Darwin checks Flagsmith every ${Math.round(s.auto_check_seconds)}s; Flagsmith recomputes at most every 5 min.</span></div>`;
+  $("check").onclick = () => post("/api/check");
+  $("stop").onclick = () => { if ($("stop").dataset.armed) post("/api/stop", { reason: "stopped from the Lab" }); else { $("stop").dataset.armed = 1; $("stop").textContent = "Click again to stop and keep the champion"; } };
+}
+
+function diffHtml(lines) {
+  return lines.slice(2).map((l) => `<div class="${l.startsWith("+") ? "add" : l.startsWith("-") ? "del" : l.startsWith("@@") ? "hunk" : ""}">${esc(l)}</div>`).join("");
+}
+function commandsHtml(cmds) {
+  return cmds.map((c, i) => `<div class="cmd"><div class="s">${i + 1}. ${esc(c.summary)}</div><code>$ ${esc(c.command)}</code>
+    ${c.body ? `<details><summary class="small muted">JSON body</summary><pre>${esc(c.body)}</pre></details>` : ""}</div>`).join("");
+}
+
+function renderCard(s) {
+  const el = $("card"), c = s.pending;
+  if (noteOpen && c && c.id === lastCardId) return; // don't wipe a note being typed
+  lastCardId = c ? c.id : null;
+  if (!c) {
+    const busy = s.busy ? `<p><span class="spinner"></span> ${esc(s.busy.what)}…</p>` : "";
+    el.innerHTML = `<h2>Waiting for you</h2><div class="empty">${busy || "Nothing needs your approval."}
+      <p class="small faint">Proposals and ship/kill recommendations appear here with their evidence and the exact Flagsmith commands they'll run.</p></div>`;
+    return;
+  }
+  const armed = confirmFor === c.id;
+  const n = c.commands.length;
+  let body;
+  if (c.kind === "launch") {
+    const p = c.proposal, st = c.stats || {}, set = c.diff.settings;
+    body = `<div class="card-title"><h3>Launch ${esc(c.challenger)}?</h3><span class="badge b-proposed">proposal</span></div>
+      <div class="small muted">Challenger to ${esc(c.champion)} · goal: ${esc(c.goal_text)}</div>
+      ${c.review_note ? `<div class="small warn" style="margin-top:6px">Revised after your note: “${esc(c.review_note)}”</div>` : ""}
+      <div class="section"><div class="label">What's going wrong — from ${c.chats_read} chats</div>
+        <div class="small muted" style="margin-bottom:8px">${esc(c.champion)}: ${st.chats} chats, ${pct(st.resolution_rate)} resolved, ${pct(st.escalation_rate)} handed to a human</div>
+        ${p.patterns.map((x) => `<div class="pattern"><span class="n">×${x.count}</span> ${esc(x.pattern)}<div class="q">“${esc(x.example_quote)}”</div>
+          <div class="small"><b>Cause:</b> ${esc(x.root_cause)} <b>Fix:</b> ${esc(x.fix)}</div></div>`).join("")}</div>
+      <div class="section"><div class="label">Hypothesis</div>${esc(p.hypothesis)}<div class="small muted" style="margin-top:4px">Expected: ${esc(p.expected_effect)}</div></div>
+      <div class="section"><div class="label">Changes</div><ul class="plain">${p.changes_summary.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        ${Object.keys(set).length ? `<div class="small" style="margin-top:6px">${Object.entries(set).map(([k, v]) => `${esc(k)}: <b>${esc(v.from)}</b> → <b>${esc(v.to)}</b>`).join(" · ")}</div>` : ""}</div>
+      <div class="section"><details><summary class="label" style="cursor:pointer">Prompt diff <span class="good">+${c.diff.lines_added}</span> <span class="bad">−${c.diff.lines_removed}</span></summary>
+        <div class="diff mono">${diffHtml(c.diff.prompt_diff)}</div></details></div>
+      <div class="section small muted"><b>Risk:</b> ${esc(p.risks)} · Experiment metrics: ${esc(c.metrics.join(", "))} · Coach cost $${(c.coach_cost_usd || 0).toFixed(3)}</div>`;
+  } else {
+    body = `<div class="card-title"><h3>${esc(c.verdict === "SHIP" ? `Ship ${c.challenger}?` : c.verdict === "KILL" ? `Kill ${c.challenger}?` : `Discard ${c.challenger}?`)}</h3>
+        <span class="badge b-${c.verdict}">${esc(c.verdict)}</span></div>
+      <div>${esc(c.headline)}</div>
+      <div class="section"><div class="label">Why — Flagsmith's numbers, Darwin's rules</div><ul class="plain">${c.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`;
+  }
+  el.innerHTML = `<h2>Waiting for you</h2>${body}
+    <div class="section"><div class="label">Approving runs ${n} Flagsmith CLI command${n > 1 ? "s" : ""}</div>${commandsHtml(c.commands)}</div>
+    <div class="actions">
+      ${noteOpen ? `<textarea id="note" placeholder="What should the Coach change?"></textarea>
+        <div class="row" style="margin-top:8px"><button class="primary" id="send-note">Ask the Coach to revise</button><button id="cancel-note">Cancel</button></div>` :
+      `<div class="row">
+        <button class="primary" id="approve" ${s.working || s.busy ? "disabled" : ""}>${armed ? `Yes — run ${n} command${n > 1 ? "s" : ""} as ${esc(actor())}` : c.kind === "launch" ? "Approve launch" : `Approve ${c.verdict.toLowerCase()}`}</button>
+        ${c.kind === "launch" ? `<button id="reject">Reject</button><button id="revise">Reject with a note</button>` : `<button id="reject">Keep running</button>`}
+        ${s.working || s.busy ? `<span class="spinner"></span>` : ""}</div>`}
+    </div>`;
+  if (noteOpen) {
+    $("note").focus();
+    $("send-note").onclick = () => { const t = $("note").value.trim(); if (!t) return; noteOpen = false; post("/api/reject", { note: t }); };
+    $("cancel-note").onclick = () => { noteOpen = false; render(S); };
+    return;
+  }
+  $("approve").onclick = () => { if (armed) { confirmFor = null; post("/api/approve", { card_id: c.id }); } else { confirmFor = c.id; render(S); } };
+  $("reject").onclick = () => post("/api/reject");
+  const rv = $("revise"); if (rv) rv.onclick = () => { noteOpen = true; render(S); };
+}
+
+function renderActivity(s) {
+  const a = s.activity, shipped = s.lineage.filter((g) => g.result && g.result.verdict === "SHIP").length;
+  $("activity-stats").innerHTML = `
+    <div class="stat"><b>${a.flagsmith_writes}</b><span>Flagsmith changes made for you</span></div>
+    <div class="stat"><b>${a.chats_read_by_coach}</b><span>conversations read by the Coach</span></div>
+    <div class="stat"><b>${shipped}</b><span>generations shipped</span></div>`;
+  $("history").innerHTML = s.history.slice().reverse().map((h) => `<li><time>${clock(h.ts)}</time><span>${esc(h.text)}</span></li>`).join("") || `<li><span class="muted">Nothing yet.</span></li>`;
+  $("commands").innerHTML = a.recent_commands.slice().reverse().map((j) => `<div class="cmd"><div class="s">${j.ok ? "✓" : "✗"} ${esc(j.summary)} <span class="faint">${clock(j.ts)}</span></div><code>$ ${esc(j.command)}</code></div>`).join("")
+    || `<div class="empty">Approved actions run the official Flagsmith CLI. They'll be listed here.</div>`;
+}
+
+async function loadChats() {
+  const g = $("f-gen").value, o = $("f-out").value;
+  const rows = await (await fetch(`/api/transcripts?limit=30${g ? `&generation=${g}` : ""}${o ? `&outcome=${o}` : ""}`)).json();
+  $("chats").innerHTML = rows.map((r) => `<details class="chat"><summary>
+      <span class="badge ${r.resolved ? "b-champion" : r.escalated ? "b-challenger" : "b-killed"}">${r.resolved ? "resolved" : r.escalated ? "to human" : "not resolved"}</span>
+      <b>${esc(r.generation)}</b><span class="small muted">${esc(r.channel)} · ${esc(r.turns.find((t) => t.role === "customer")?.text.slice(0, 90))}</span></summary>
+      <div class="body">${r.turns.map((t) => t.role === "customer" ? `<div class="c">${esc(t.text)}</div>` :
+        (t.tools || []).map((x) => `<div class="t">🔧 ${esc(x.name)}(${esc(Object.values(x.input).join(", ").slice(0, 120))})${x.is_error ? " ⚠️" : ""}</div>`).join("") + `<div class="b">${esc(t.text)}</div>`).join("")}
+        ${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ""}</div></details>`).join("") || `<div class="empty">No conversations yet.</div>`;
+}
+
+function render(s) {
+  renderTop(s); renderLineage(s); renderExperiment(s); renderCard(s); renderActivity(s);
+  const sel = $("f-gen"), cur = sel.value;
+  const opts = ['<option value="">all generations</option>'].concat(s.lineage.map((g) => `<option value="${esc(g.name)}">${esc(g.name)}</option>`)).join("");
+  if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.value = cur; sel.dataset.opts = opts; }
+  (s.toasts || []).filter((t) => t.ts * 1000 > seenToasts).forEach((t) => toast(t.kind, t.text));
+  if (s.toasts && s.toasts.length) seenToasts = Math.max(seenToasts, ...s.toasts.map((t) => t.ts * 1000));
+}
+
+async function load() {
+  try { S = await (await fetch("/api/state")).json(); render(S); } catch (e) { console.error(e); }
+}
+$("f-gen").onchange = loadChats; $("f-out").onchange = loadChats;
+seenToasts = Date.now();
+load(); loadChats();
+setInterval(load, 2500); setInterval(loadChats, 15000);
+</script>
+</body>
+</html>
