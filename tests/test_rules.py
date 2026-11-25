@@ -68,10 +68,10 @@ def test_guardrail_breach_kills_even_a_winner():
 
 def test_token_guardrail_tolerates_a_modest_increase():
     winner = metric("resolved", inference=Inference(0.5, 0.2, 0.8, 0.999))
-    tokens_up_20 = metric("tokens_used", direction="down", aggregation="sum", inference=Inference(0.2, 0.1, 0.3, 0.0))
+    tokens_up_20 = metric("cost_microusd", direction="down", aggregation="sum", inference=Inference(0.2, 0.1, 0.3, 0.0))
     d = decide(readout(winner, tokens_up_20))
     assert d.verdict == SHIP
-    assert next(g for g in d.guardrails if g.metric == "tokens_used").state in ("ok", "watch")
+    assert next(g for g in d.guardrails if g.metric == "cost_microusd").state in ("ok", "watch")
 
 
 def test_broken_split_holds():

@@ -31,7 +31,7 @@ class DecisionPolicy:
     primary: str = "resolved"
     guardrails: tuple[Guardrail, ...] = (
         Guardrail("escalated", 0.0, "escalations to a human"),
-        Guardrail("tokens_used", 0.30, "tokens per chat"),
+        Guardrail("cost_microusd", 0.30, "cost per chat"),
     )
     ship_at: float = 0.95
     discard_at: float = 0.05
