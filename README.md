@@ -1,5 +1,7 @@
 # Darwin
 
+[![tests](https://github.com/anugrah55/darwin/actions/workflows/test.yml/badge.svg)](https://github.com/anugrah55/darwin/actions/workflows/test.yml)
+
 **Your AI agent evolves in production. Flagsmith decides who survives. You approve every change.**
 
 Darwin keeps an AI agent's whole configuration (its system prompt, model and effort) in **one Flagsmith
