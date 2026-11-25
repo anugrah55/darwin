@@ -31,7 +31,8 @@ from .agent import run_turn
 from .store import Store, demo_orders
 
 HERE = Path(__file__).parent
-# The genome served when Flagsmith can't be reached (or the flag doesn't exist yet).
+# The bundled genome: served when the flag is off (the kill switch) or missing, and when Flagsmith is unreachable
+# before Brain has seen a good genome. Otherwise an unreachable Flagsmith means the last good genome.
 GEN1 = Genome.model_validate_json(Path(os.environ.get("SHOPBOT_FALLBACK_GENOME", HERE / "genomes" / "gen1.json")).read_text())
 
 
@@ -82,7 +83,8 @@ class ShopBot:
             self.store.add(order)
         self.brain = (
             Brain(settings.flag, fallback=GEN1, server_key=settings.flagsmith_server_key,
-                  api_url=settings.flagsmith_sdk_api_url, events_url=settings.flagsmith_events_url)
+                  api_url=settings.flagsmith_sdk_api_url, events_url=settings.flagsmith_events_url,
+                  cache_path=settings.data_dir / "brain-last-good.json")
             if settings.flagsmith_server_key else None
         )
         self.sessions: dict[str, Session] = {}

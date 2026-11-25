@@ -54,3 +54,42 @@ def test_falls_back_when_the_flag_is_off_or_garbage():
 def test_no_running_experiment_still_serves_the_flag_value():
     a = Brain("shopbot_brain", fallback=GEN1, client=FakeSDK(flag(GEN2.to_flag_value(), variant=None, experiment=None))).assign("u1")
     assert (a.genome.name, a.variant, a.in_experiment) == ("gen2", "control", False)
+
+
+def test_an_unreachable_flagsmith_serves_the_last_good_champion(tmp_path):
+    sdk = FakeSDK(flag(GEN2.to_flag_value(), variant=None, experiment=None))
+    brain = Brain("shopbot_brain", fallback=GEN1, client=sdk, cache_path=tmp_path / "last-good.json")
+    assert brain.assign("u1").genome.name == "gen2"
+    sdk.error = ConnectionError("Flagsmith is down")
+    a = brain.assign("u2")
+    assert (a.genome.name, a.source, a.variant) == ("gen2", "cache", "last-good") and "down" in a.reason
+    # a restarted app remembers it too
+    restarted = Brain("shopbot_brain", fallback=GEN1, client=FakeSDK(error=ConnectionError("still down")),
+                      cache_path=tmp_path / "last-good.json")
+    assert restarted.assign("u3").genome.name == "gen2"
+
+
+def test_turning_the_flag_off_is_a_kill_switch_even_with_a_cached_genome(tmp_path):
+    sdk = FakeSDK(flag(GEN2.to_flag_value(), variant=None, experiment=None))
+    brain = Brain("shopbot_brain", fallback=GEN1, client=sdk, cache_path=tmp_path / "last-good.json")
+    brain.assign("u1")
+    sdk.flag = flag(GEN2.to_flag_value(), enabled=False, variant=None, experiment=None)
+    a = brain.assign("u2")
+    assert (a.genome.name, a.source) == ("gen1", "fallback") and "kill switch" in a.reason
+
+
+def test_a_challenger_is_never_cached_and_a_bad_value_serves_the_last_good_genome(tmp_path):
+    champion = FakeSDK(flag(GEN1.to_flag_value(), variant="control"))
+    brain = Brain("shopbot_brain", fallback=GEN1, client=champion)
+    brain.assign("u1")
+    champion.flag = flag(GEN2.to_flag_value(), variant="gen2")  # this user is in the challenger arm
+    brain.assign("u2")
+    assert brain.last_good.name == "gen1"
+    champion.flag = flag("{broken json", variant=None, experiment=None)
+    a = brain.assign("u3")
+    assert (a.genome.name, a.source) == ("gen1", "cache")
+
+
+def test_with_nothing_cached_an_outage_serves_the_bundled_fallback():
+    a = Brain("shopbot_brain", fallback=GEN1, client=FakeSDK(error=TimeoutError("slow"))).assign("u1")
+    assert a.source == "fallback" and "no last good genome" in a.reason
