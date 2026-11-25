@@ -585,3 +585,34 @@ def test_cli_reconcile_shows_the_missing_steps_and_finishes_them(env, monkeypatc
     out = capsys.readouterr().out
     assert "didn't run" in out and "Done." in out
     assert steward.store.read()["champion"] == "gen2" and "Shipped in Darwin by anugrah" in fs.exps[exp_id]["hypothesis"]
+
+
+def test_check_never_calls_flagsmith_while_holding_the_state_lock(env):
+    from contextlib import contextmanager
+    steward, fs, tmp = env
+    steward.init(GEN1)
+    chats(tmp, "gen1")
+    steward.propose()
+    exp_id = steward.approve("a")["experiment_id"]
+    fs.payloads[exp_id] = payload(steward.store.read()["metrics"], "gen2")
+    inside = {"n": 0}
+    real = steward.store.transaction
+
+    @contextmanager
+    def tracked():
+        with real() as s:
+            inside["n"] += 1
+            try:
+                yield s
+            finally:
+                inside["n"] -= 1
+    steward.store.transaction = tracked
+    for name in ("feature", "flag", "experiment", "experiments", "results", "run"):
+        original = getattr(fs, name)
+
+        def guarded(*a, _original=original, **k):
+            assert inside["n"] == 0, "Flagsmith was called while lab.json was locked"
+            return _original(*a, **k)
+        setattr(fs, name, guarded)
+    assert steward.check()["decision"]["verdict"] == "SHIP"
+    assert steward.store.read()["pending"]["kind"] == "decision"

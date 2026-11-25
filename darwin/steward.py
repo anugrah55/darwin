@@ -504,6 +504,16 @@ class Steward:
         readout = parse_readout(detail, results, challenger=exp["challenger"], expected_split=exp["split"])
         decision = decide(readout, POLICIES[exp["goal"]], champion=exp["champion"],
                           min_per_arm=exp.get("min_per_arm", self.settings.min_per_arm))
+
+        def same_card(pending: dict | None) -> bool:
+            return bool(pending) and pending.get("kind") == "decision" and pending.get("verdict") == decision.verdict
+
+        # Build a new card (which reads Flagsmith) before taking the state lock; the transaction only stores it.
+        latest = self.store.read()
+        card = None
+        if decision.needs_approval and latest["experiment"] and latest["experiment"]["id"] == exp["id"] \
+                and latest["experiment"].get("dismissed") != decision.verdict and not same_card(latest["pending"]):
+            card = self._decision_card(latest, exp, decision, detail, readout.to_dict())
         with self.store.transaction() as st:
             e = st["experiment"]
             if not e or e["id"] != exp["id"]:
@@ -512,24 +522,24 @@ class Steward:
             e["flagsmith_status"] = detail.get("status")
             pending = st["pending"]
             if decision.needs_approval and e.get("dismissed") != decision.verdict:
-                if not pending or pending.get("kind") != "decision" or pending.get("verdict") != decision.verdict:
-                    st["pending"] = self._decision_card(st, e, decision, detail)
+                if same_card(pending):
+                    pending.update(headline=decision.headline, reasons=decision.reasons, readout=readout.to_dict())
+                elif card is not None and (not pending or pending.get("kind") == "decision"):
+                    st["pending"] = card
                     log_event(st, "recommended", f"Rules recommend {decision.verdict} for {e['challenger']}: {decision.headline}",
                               "darwin", generation=e["challenger"], experiment_id=e["id"])
-                else:
-                    pending.update(headline=decision.headline, reasons=decision.reasons, readout=readout.to_dict())
             elif pending and pending.get("kind") == "decision" and not decision.needs_approval:
                 st["pending"] = None
                 log_event(st, "withdrawn", f"Recommendation withdrawn: {decision.headline}", "darwin", experiment_id=e["id"])
         return {"running": True, "readout": readout.to_dict(), "decision": decision.to_dict(), "note": note}
 
-    def _decision_card(self, state: dict, exp: dict, decision, detail: dict) -> dict:
+    def _decision_card(self, state: dict, exp: dict, decision, detail: dict, readout: dict | None) -> dict:
         challenger = self._genome(state, exp["challenger"])
         card_id = uuid.uuid4().hex[:8]
         return {"kind": "decision", "id": card_id, "created_at": _now(), "verdict": decision.verdict,
                 "headline": decision.headline, "reasons": decision.reasons, "experiment_id": exp["id"],
                 "champion": exp["champion"], "challenger": exp["challenger"], "goal": exp["goal"],
-                "readout": exp["readout"],
+                "readout": readout,
                 "commands": [c.to_dict() for c in self._decision_plan(exp, decision.verdict, challenger, card_id=card_id,
                                                                       detail=detail)]}
 
