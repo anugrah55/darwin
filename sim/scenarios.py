@@ -379,7 +379,11 @@ def wismo_late(f: Factory) -> Case:
             return False, "didn't share the tracking number"
         return True, f"tracking shared and ${credit} credit issued"
 
+    # Offered a specialist they didn't ask for, some customers say yes (and a human gets a solved ticket).
+    takes_offer = f.rng.random() < 0.6
+    offer = "Yes please, have someone look into it." if takes_offer else "No thanks, that's all I needed."
     return Case("wismo_late", name, email, [o], opening, o["order_id"], preference="Yes, please.", check=check,
+                replies=[(r"specialist|escalat|human|someone (from|on) (our|the)|team (to|will|can)", offer)],
                 facts={"days_late": late, "credit": credit})
 
 

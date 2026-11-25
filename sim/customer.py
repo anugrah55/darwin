@@ -18,7 +18,8 @@ CLOSING = re.compile(r"anything else|something else|help with anything|have a (g
 GIVE_UP = "Never mind, this is taking too long."
 # ShopBot is waiting on the customer when it asks a question *or* asks for something ("I'll need your email").
 WAITING = re.compile(r"\?|\b(i('ll| will)? need|i just need|please (provide|share|send|confirm|tell|reply|let me know)|"
-                     r"let me know|could you|can you|share (your|the)|send (me )?(your|the)|provide (your|the)|reply with)\b", re.I)
+                     r"let me know|could you|can you|share (your|the)|send (me )?(your|the)|provide (your|the)|reply with|"
+                     r"if you('d| could| can)? (give|share|send|tell|provide)|give me)\b", re.I)
 
 
 @dataclass

@@ -150,3 +150,14 @@ def test_customer_answers_requests_phrased_without_a_question_mark():
     c = case("missing_order_id")
     state = CustomerState()
     assert c.email in next_message(c, "I can help with that! I'll need the email address on your account.", state)
+
+
+def test_customer_answers_conditional_requests():
+    c = case("missing_order_id")
+    msg = "I don't need the confirmation. If you give me the email address on your account, I'll look it up."
+    assert c.email in next_message(c, msg, CustomerState())
+
+
+def test_wismo_customers_differ_on_unrequested_escalation_offers():
+    answers = {next_message(case("wismo_late", s), "Done! Would you like a specialist to investigate?", CustomerState()) for s in range(30)}
+    assert any("No thanks" in a for a in answers) and any("Yes" in a for a in answers)
