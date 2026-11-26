@@ -157,3 +157,35 @@ Ship gen5: resolved 100% vs 85% for gen4 (+18%), 100.0% chance it's better.
 
 Experiment #4 completed; approved by **claude-dev-run**.
 
+## gen6 — challenger to gen5 (2026-11-26 08:31 IST)
+
+**Goal:** cost  
+**Hypothesis:** Most chats call get_policy; telling ShopBot the standard policy instead removes those calls, so cost per chat falls without hurting resolution.  
+**Expected effect:** Proposed by teammate (demo); not predicted by the Coach.
+
+**Evidence** (0 chats read; gen5: 76 chats, 100% resolved, 4% escalated):
+
+
+**Changes:**
+  - Prompt written by teammate (demo)
+- Model `claude-haiku-5-5`, effort `low`
+
+**Launched** experiment #5, approved by **Anugrah**. Commands run:
+
+    flagsmith --yes feature variant add shopbot_brain --key gen6 --value <gen6 genome, 540 chars> --type string --weight 0
+    flagsmith --yes api api/v1/environments/aQbRhkxx6rbu5gpJvEw3Qe/experiments/ -X POST --input -   # JSON body on stdin
+    flagsmith --yes api 'api/v1/environments/aQbRhkxx6rbu5gpJvEw3Qe/experiments/<new experiment id>/start/' -X POST
+
+### gen6: KILL (2026-11-26 08:39 IST)
+
+Kill gen6: resolution fell more than the 5 pts margin (>99.9% chance).
+
+- gen6: cost per chat $0.00052 vs $0.00055 for gen5 (-5%, 95% CI -11% … +1%, 93.5% chance it's lower)
+- resolution: 99% → 45% (-54.3 pts) · >99.9% chance it fell more than 5 pts · worse than the margin
+- escalations: 5% → 18% (+12.8 pts) · 82% chance they rose more than 5 pts · not proven safe yet
+
+**The Coach predicted:** Proposed by teammate (demo); not predicted by the Coach.  
+**Flagsmith measured:** see above.
+
+Experiment #5 completed; approved by **Anugrah**.
+
