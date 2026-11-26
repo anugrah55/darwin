@@ -44,7 +44,7 @@ hypothesis, “&gt;99% winner probability”, +31.8% lift, and “gen2 rolled ou
 ## 📈 What happened in our run
 
 ShopBot is a customer-support agent (Claude Haiku 5.5) for an imaginary outdoor store, and its brain lives in the flag
-`shopbot_brain`. Five generations ran on a local Flagsmith 2.295.2. Every row is one Flagsmith experiment: **about 160
+`shopbot_brain`. Six generations ran on a local Flagsmith 2.295.2. Every row is one Flagsmith experiment: **about 160
 fresh customers split 50/50**, with the numbers taken from Flagsmith's results.
 
 <picture>
@@ -59,6 +59,7 @@ fresh customers split 50/50**, with the numbers taken from Flagsmith's results.
 | gen3 | 🤖 Coach | cut cost | **cost per chat −8%** (95% CI −14% … −2%) · resolution unchanged (+1%, CI −3% … +5%) | ✅ shipped |
 | gen4 | 🧑 teammate | cut cost | **cost per chat −27%** (95% CI −32% … −23%) · resolution unchanged (+1%, CI −7% … +9%) | ✅ shipped |
 | gen5 | 🤖 Coach | resolve more | **resolved 100% vs 85%** · lift +18% (95% CI +7% … +29%) · 100% chance to win · cost +20% | ✅ shipped |
+| gen6 | 🧑 teammate | cut cost | cost −5% (not proven) · **resolution 99% → 45%** · escalations 5% → 18% (220 chats) | 🛑 **killed** |
 
 From gen1 to gen5, chats handed to a human fell from **25% to 4%** and resolution rose from **about 70% to 100%**, while
 gen5 still costs less per chat than gen1 ($0.00056 vs $0.00065). Those end-to-end figures compare different
@@ -72,13 +73,37 @@ experiments, so read them as indicative; each row is a controlled comparison.
 - **Humans go through the same gate.** A teammate's two-line prompt (gen4) cut cost by 27% with no measurable quality
   loss, so it shipped. The next round showed the short prompt had dropped gen2's escalation rules, and the Coach put
   back only what mattered (gen5: 1,719 characters vs gen2's 4,376).
-- **Total Claude spend for the whole run, pilots included: $0.97**, under a $2 cap Darwin enforces itself.
+- **The guardrail earned its keep.** gen6 skipped policy lookups to save money. Flagsmith's own page called it the
+  winner on cost (94%), but Darwin's resolution guardrail saw resolution fall from 99% to 45% and killed it before it
+  reached every customer. [See it below.](#-the-guardrail-in-action)
+- **Total Claude spend for the whole run, pilots included: $1.09**, under a $2 cap Darwin enforces itself.
 
 > [!NOTE]
-> In this development run the approvals were scripted (approver `claude-dev-run`) to test the whole loop end to end.
-> These five generations were decided under Darwin's first, simpler rule: ship when the goal metric wins and no
-> guardrail is proven worse. Darwin now also requires every guardrail to be proven within its margin. The demo video
-> shows a person approving in the Lab.
+> gen2–gen5 were approved by script (approver `claude-dev-run`) while testing the loop end to end, and were decided
+> under Darwin's first, simpler rule (ship when the goal metric wins and no guardrail is proven worse). gen6 ran on the
+> current rules and was approved by Anugrah in the Lab; Flagsmith's experiment page records both approvals.
+
+## 🛑 The guardrail in action
+
+A teammate's idea: *"Most chats call `get_policy`. Tell ShopBot the standard policy and skip the lookups to save
+money."* Darwin gave it the same gate as everything else.
+
+<p align="center"><img src="docs/img/approve-launch.gif" alt="The gen6 launch card in the Darwin Lab: written by a teammate, what decides it, projected cost, exact commands; Anugrah approves" width="100%"></p>
+
+<p align="center"><sub><b>1. Approve the launch.</b> The card says who wrote it, what decides it (100 chats per arm, every
+guardrail within its margin), the projected Claude cost, and the exact Flagsmith commands.</sub></p>
+
+<p align="center"><img src="docs/img/guardrail-kill.gif" alt="Experiment 5 in the Lab: cost per chat slightly lower, resolution 99% to 45%, escalations 5% to 18%; KILL recommended and approved" width="100%"></p>
+
+<p align="center"><sub><b>2. The guardrail vetoes it.</b> 220 customers later: about 5% cheaper (not even proven), but
+resolution fell from 99% to 45% and escalations rose from 5% to 18%. Darwin recommends KILL; one click keeps gen5 for
+everyone.</sub></p>
+
+<p align="center"><img src="docs/img/flagsmith-exp5.gif" alt="Flagsmith's experiment 5 page: hypothesis with 'Approved in Darwin by Anugrah' and 'Killed in Darwin by Anugrah', 94% winner on cost, control rolled out to everyone" width="100%"></p>
+
+<p align="center"><sub><b>3. Flagsmith keeps the record.</b> Flagsmith scores only the primary metric, so on cost alone
+it calls gen6 a 94% winner. The hypothesis shows <i>"Approved in Darwin by Anugrah… Killed in Darwin by Anugrah"</i>,
+and the rollout is <i>"Control rolled out to everyone"</i>.</sub></p>
 
 ## 🧬 How it works
 
@@ -94,9 +119,20 @@ experiments, so read them as indicative; each row is a controlled comparison.
    challenger as a variant, creates the experiment (champion as control, 50/50, three metrics) and starts it.
 4. **Select.** Simulated customers (or real ones on the chat page) send traffic. The Lab reads Flagsmith's results
    every minute; Flagsmith recomputes them at most every 5 minutes.
-5. **Approve the decision.** Rules turn Flagsmith's numbers into SHIP, DISCARD, KILL (a guardrail is clearly worse) or
-   HOLD (the traffic split looks broken). Approving completes the experiment with Flagsmith's rollout decision, and
-   everyone gets the winner instantly, with no redeploy.
+5. **Approve the decision.** Rules turn Flagsmith's numbers into a recommendation, and approving completes the
+   experiment with Flagsmith's rollout decision. Everyone gets the result instantly, with no redeploy.
+
+| Verdict | When |
+|---|---|
+| **KILL** | any guardrail is worse than its margin with ≥95% probability, even before the planned sample |
+| **SHIP** | each arm has the planned 100 chats, the goal metric has ≥95% chance to win, **and** every guardrail is proven within its margin (≤5% chance it's worse) |
+| **DISCARD** | the goal metric has ≤5% chance to win |
+| **HOLD** | the traffic split looks broken (sample-ratio mismatch, p < 0.001) |
+| **KEEP RUNNING** | anything else, including a winner whose guardrails aren't proven safe yet |
+
+Margins: resolution may fall at most 5 points; escalations may rise at most 5 points; cost per chat may rise at most 30%
+(on the resolve-more goal). Where Flagsmith has too few conversions to report a result, Darwin computes the guardrail
+from Flagsmith's raw counts.
 
 <details>
 <summary><b>One generation, step by step (sequence diagram)</b></summary>
@@ -214,6 +250,8 @@ darwin propose --prompt-file F …   submit your own challenger (same experiment
 darwin approve / reject [--note]   decide the waiting card; a note makes the Coach revise
 darwin check / watch               read Flagsmith's results and apply the rules
 darwin stop · darwin rollback GEN  emergency stop · make an earlier generation champion again
+darwin reconcile                   match Flagsmith after a half-finished approval or a dashboard change
+darwin unlock                      clear a stuck "busy" flag
 darwin spend                       Claude spend against the cap
 ```
 </details>
