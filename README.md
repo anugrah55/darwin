@@ -21,7 +21,10 @@ runs champion against challenger on live traffic, and its Bayesian engine says w
 numbers into a recommendation (ship, discard or kill), and **nothing touches live traffic until a human approves** a
 card that shows the exact Flagsmith CLI commands it will run.
 
-▶️ **Demo video:** _coming_ · 🧪 **[Lab notebook from our run](LAB_NOTEBOOK.md)** · 🧬 **[Editable diagrams](docs/diagrams/)**
+▶️ **[Demo video (2:30)](docs/video/darwin-demo.mp4)** · 🧪 **[Lab notebook from our run](LAB_NOTEBOOK.md)** · 🧬 **[Editable diagrams](docs/diagrams/)**
+
+<p align="center"><a href="docs/video/darwin-demo.mp4"><img src="docs/img/demo-teaser.gif" alt="Demo video teaser: Flagsmith calls gen6 a 94% winner on cost, but resolution fell from 99% to 45% and Darwin kills it. Click for the full 2:30 video." width="100%"></a></p>
+<p align="center"><sub>▶️ <b><a href="docs/video/darwin-demo.mp4">Watch the 2:30 demo</a></b> (narrated with Sarvam AI's Bulbul voice; built with HyperFrames)</sub></p>
 
 ## 🎬 The 60-second tour
 
