@@ -1,0 +1,73 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #121311; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border-radius: 14px; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.9); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #8f7bff; }
+    #s08-chart { position: absolute; left: 70px; top: 150px; width: 1569px; height: 705px; }
+    .band { position: absolute; left: 78px; width: 1553px; height: 84px; border-radius: 12px; border: 4px solid #7fd49b; }
+    .cell { position: absolute; width: 328px; height: 73px; border-radius: 10px; border: 5px solid #7fd49b; background: rgba(127, 212, 155, 0.10); }
+    .num { position: absolute; left: 1664px; width: 230px; text-align: left; line-height: 1; }
+    .num b { display: block; font-size: 48px; font-weight: 900; letter-spacing: -0.03em; color: #7fd49b; font-variant-numeric: tabular-nums; }
+    .num span { display: block; margin-top: 2px; font-size: 28px; color: #a9a79f; font-weight: 700; }
+    #s08-dim { position: absolute; left: 74px; top: 685px; width: 1561px; height: 92px; background: rgba(26, 26, 25, 0.72); border-radius: 10px; }
+  </style>
+  <div id="root" data-composition-id="s08" data-width="1920" data-height="1080">
+    <div id="s08-a" class="shot clip" data-start="0" data-duration="3" data-track-index="1" style="background:#101628">
+      <div id="s08-a-in" class="inner">
+        <div id="s08-a-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/fs-experiments.png" width="2880" height="1800" alt="Flagsmith experiments list: five completed shopbot_brain experiments" />
+          <div id="s08-a-hl" class="hl" style="left:664px;top:990px;width:2150px;height:112px;border:7px solid #7fd49b;background:rgba(127,212,155,0.07)"></div>
+        </div>
+        <div class="src"><i></i>Flagsmith dashboard · one experiment per generation</div>
+      </div>
+    </div>
+    <div id="s08-b" class="shot clip" data-start="2.8" data-duration="10.3" data-track-index="2">
+      <div id="s08-b-in" class="inner">
+        <img id="s08-chart" src="assets/img/results.svg" width="1569" height="705" alt="Every generation vs the champion it challenged, one row per Flagsmith experiment" />
+        <div id="s08-dim"></div>
+        <div id="s08-band2" class="band" style="top:437px"></div>
+        <div id="s08-cell2" class="cell" style="left:1221px;top:443px"></div>
+        <div id="s08-num2" class="num" style="top:448px"><b>−8%</b><span>cost · Coach</span></div>
+        <div id="s08-band3" class="band" style="top:521px"></div>
+        <div id="s08-cell3" class="cell" style="left:1221px;top:527px"></div>
+        <div id="s08-num3" class="num" style="top:532px"><b>−27%</b><span>cost · teammate</span></div>
+        <div id="s08-band4" class="band" style="top:605px"></div>
+        <div id="s08-cell4" class="cell" style="left:450px;top:611px"></div>
+        <div id="s08-num4" class="num" style="top:616px"><b>100%</b><span>resolved · Coach</span></div>
+        <div class="src"><i></i>Flagsmith's numbers for each experiment · ≈160 simulated customers each</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 14px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 14px)", duration: 0.45, ease: "power3.out" }, t); }
+    function pop(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.22, ease: "power3.out" }, t); }
+    function fadeTo(sel, t, o) { tl.fromTo(sel, { opacity: 1 }, { opacity: o, duration: 0.3, ease: "power2.out", immediateRender: false }, t); }
+
+    camSet("#s08-a-cam", [650, 560, 2200, 700], 0);
+    tl.fromTo("#s08-a-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 0);
+    hl("#s08-a-hl", 0.8);
+    tl.to("#s08-a-in", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 2.8);
+
+    tl.fromTo("#s08-b-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 2.85);
+    // row #2 (gen2 → gen3) is already the subject when the chart lands
+    hl("#s08-band2", 2.9); hl("#s08-cell2", 3.0); pop("#s08-num2", 3.1);
+    // row #3: the teammate's two-line prompt
+    fadeTo(["#s08-band2", "#s08-cell2"], 3.5, 0);
+    hl("#s08-band3", 3.6); hl("#s08-cell3", 3.75); pop("#s08-num3", 5.2);
+    // row #4: the Coach puts back what mattered
+    fadeTo(["#s08-band3", "#s08-cell3"], 8.4, 0);
+    hl("#s08-band4", 8.5); hl("#s08-cell4", 8.65); pop("#s08-num4", 10.9);
+
+    window.__timelines["s08"] = tl;
+  </script>
+</template>

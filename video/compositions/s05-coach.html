@@ -1,0 +1,51 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #121311; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.88); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #7fd49b; }
+    #s05-card { position: absolute; left: 150px; top: 112px; width: 1620px; height: 800px; background: #1b1c1a; border: 2px solid #2e2e2b; border-radius: 22px; padding: 38px 48px; }
+    .ttl { font-size: 50px; font-weight: 700; letter-spacing: -0.02em; }
+    .badge { position: absolute; right: 48px; top: 44px; padding: 6px 20px; border-radius: 22px; background: #f2b65c; color: #2a1c06; font-size: 28px; font-weight: 900; letter-spacing: 0.06em; }
+    .sub { margin-top: 10px; font-size: 30px; color: #a9a79f; }
+    .lbl { margin-top: 26px; font-size: 28px; font-weight: 700; letter-spacing: 0.08em; color: #8f8d86; }
+    .lbl b { color: #d9d7d0; }
+    .pat { display: flex; gap: 22px; margin-top: 16px; align-items: flex-start; }
+    .cnt { flex: 0 0 auto; min-width: 92px; text-align: center; padding: 6px 0; border-radius: 12px; background: #3a2f1c; color: #f2b65c; font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .ptxt { font-size: 30px; line-height: 1.28; }
+    .q { display: block; margin-top: 4px; font-size: 28px; color: #b9b7af; }
+    .hyp { margin-top: 10px; font-size: 30px; line-height: 1.32; }
+    .hyp mark { background: none; color: #7fd49b; font-weight: 700; }
+    #s05-tag { position: absolute; right: 48px; bottom: 34px; padding: 8px 22px; border-radius: 12px; background: #8f7bff; color: #120c2c; font-size: 30px; font-weight: 700; }
+  </style>
+  <div id="root" data-composition-id="s05" data-width="1920" data-height="1080">
+    <div id="s05-scene" class="clip" data-start="0" data-duration="12.3" data-track-index="1" style="position:absolute;inset:0">
+      <div id="s05-in" style="position:absolute;inset:0">
+        <div class="src"><i></i>The Coach's gen2 card · text from Darwin's lab notebook</div>
+        <div id="s05-card">
+          <div class="ttl">Launch gen2?</div>
+          <div class="badge">PROPOSAL</div>
+          <div class="sub">Challenger to gen1 · goal: resolve more chats · written by the Coach (Claude Opus 5.5)</div>
+          <div id="s05-lbl" class="lbl">EVIDENCE · <b>28 FAILED CHATS READ</b> · GEN1: 120 CHATS, 73% RESOLVED, 25% ESCALATED</div>
+          <div id="s05-p1" class="pat"><div class="cnt">×9</div><div class="ptxt">When an upset customer with a late order demands a human, the agent escalates at once without applying the late-delivery policy.<span class="q">“I've transferred you to a human support specialist (ticket E-1097).”</span></div></div>
+          <div id="s05-p2" class="pat"><div class="cnt">×8</div><div class="ptxt">On late deliveries the agent correctly applies the credit, then offers a human ‘investigation’ the policy doesn't call for; the customer accepts and the chat is escalated.<span class="q">“If the package still hasn't arrived after you've checked tracking, let me know and I can escalate it to a human specialist to investigate with the carrier.”</span></div></div>
+          <div id="s05-hl" class="lbl">HYPOTHESIS</div>
+          <div id="s05-hyp" class="hyp">If gen2 resolves late-delivery cases (including ‘get me a human’ requests) by policy and stops offering escalations the policy doesn't require, <mark>the resolved rate rises from 73% to about 85%</mark> and escalations fall from 25% to under 10%.</div>
+          <div id="s05-tag">Flagsmith will test this</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    function pop(sel, t, d) { tl.fromTo(sel, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: d || 0.25, ease: "power3.out" }, t); }
+    tl.fromTo("#s05-card", { opacity: 0, scale: 0.97, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 0.1);
+    pop("#s05-lbl", 3.0);
+    pop("#s05-p1", 5.6);
+    pop("#s05-p2", 6.4);
+    pop("#s05-hl", 8.9);
+    pop("#s05-hyp", 9.0, 0.3);
+    pop("#s05-tag", 10.2);
+    tl.to("#s05-in", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 12.05);
+    window.__timelines["s05"] = tl;
+  </script>
+</template>

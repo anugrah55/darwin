@@ -1,0 +1,254 @@
+[
+  {
+    "text": "Flagsmith",
+    "start": 0.03,
+    "end": 0.55,
+    "id": "w0"
+  },
+  {
+    "text": "splits",
+    "start": 0.73,
+    "end": 1.02,
+    "id": "w1"
+  },
+  {
+    "text": "the",
+    "start": 1.02,
+    "end": 1.22,
+    "id": "w2"
+  },
+  {
+    "text": "traffic",
+    "start": 1.22,
+    "end": 1.66,
+    "id": "w3"
+  },
+  {
+    "text": "50-50",
+    "start": 1.76,
+    "end": 2.25,
+    "id": "w4"
+  },
+  {
+    "text": "across",
+    "start": 2.62,
+    "end": 3.07,
+    "id": "w5"
+  },
+  {
+    "text": "160",
+    "start": 3.07,
+    "end": 3.76,
+    "id": "w6"
+  },
+  {
+    "text": "simulated",
+    "start": 3.76,
+    "end": 4.32,
+    "id": "w7"
+  },
+  {
+    "text": "customers",
+    "start": 4.37,
+    "end": 4.88,
+    "id": "w8"
+  },
+  {
+    "text": "and",
+    "start": 5.16,
+    "end": 5.34,
+    "id": "w9"
+  },
+  {
+    "text": "its",
+    "start": 5.34,
+    "end": 6,
+    "id": "w10"
+  },
+  {
+    "text": "Bayesian",
+    "start": 6,
+    "end": 6.13,
+    "id": "w11"
+  },
+  {
+    "text": "engine",
+    "start": 6.13,
+    "end": 6.24,
+    "id": "w12"
+  },
+  {
+    "text": "scores",
+    "start": 6.27,
+    "end": 6.71,
+    "id": "w13"
+  },
+  {
+    "text": "both",
+    "start": 6.71,
+    "end": 7.02,
+    "id": "w14"
+  },
+  {
+    "text": "versions.",
+    "start": 7.02,
+    "end": 7.9,
+    "id": "w15"
+  },
+  {
+    "text": "The",
+    "start": 7.9,
+    "end": 8.09,
+    "id": "w16"
+  },
+  {
+    "text": "Challenger",
+    "start": 8.13,
+    "end": 8.49,
+    "id": "w17"
+  },
+  {
+    "text": "resolved",
+    "start": 8.86,
+    "end": 9.44,
+    "id": "w18"
+  },
+  {
+    "text": "91%",
+    "start": 9.44,
+    "end": 9.95,
+    "id": "w19"
+  },
+  {
+    "text": "of",
+    "start": 9.95,
+    "end": 10.02,
+    "id": "w20"
+  },
+  {
+    "text": "chats",
+    "start": 10.13,
+    "end": 10.42,
+    "id": "w21"
+  },
+  {
+    "text": "against",
+    "start": 10.47,
+    "end": 11,
+    "id": "w22"
+  },
+  {
+    "text": "69%",
+    "start": 11,
+    "end": 11.63,
+    "id": "w23"
+  },
+  {
+    "text": "with",
+    "start": 11.63,
+    "end": 11.98,
+    "id": "w24"
+  },
+  {
+    "text": "a",
+    "start": 12.02,
+    "end": 12.08,
+    "id": "w25"
+  },
+  {
+    "text": "99.8%",
+    "start": 12.08,
+    "end": 13.25,
+    "id": "w26"
+  },
+  {
+    "text": "chance",
+    "start": 13.25,
+    "end": 13.69,
+    "id": "w27"
+  },
+  {
+    "text": "to",
+    "start": 13.86,
+    "end": 14.21,
+    "id": "w28"
+  },
+  {
+    "text": "win.",
+    "start": 14.21,
+    "end": 15.31,
+    "id": "w29"
+  },
+  {
+    "text": "One",
+    "start": 15.4,
+    "end": 15.48,
+    "id": "w30"
+  },
+  {
+    "text": "more",
+    "start": 15.58,
+    "end": 15.77,
+    "id": "w31"
+  },
+  {
+    "text": "approval",
+    "start": 15.77,
+    "end": 16.07,
+    "id": "w32"
+  },
+  {
+    "text": "and",
+    "start": 16.07,
+    "end": 16.44,
+    "id": "w33"
+  },
+  {
+    "text": "Flagsmith",
+    "start": 16.44,
+    "end": 16.84,
+    "id": "w34"
+  },
+  {
+    "text": "rolls",
+    "start": 16.84,
+    "end": 17.11,
+    "id": "w35"
+  },
+  {
+    "text": "it",
+    "start": 17.11,
+    "end": 17.24,
+    "id": "w36"
+  },
+  {
+    "text": "out",
+    "start": 17.24,
+    "end": 17.38,
+    "id": "w37"
+  },
+  {
+    "text": "to",
+    "start": 17.42,
+    "end": 17.61,
+    "id": "w38"
+  },
+  {
+    "text": "everyone.",
+    "start": 17.71,
+    "end": 18.64,
+    "id": "w39"
+  },
+  {
+    "text": "No",
+    "start": 18.67,
+    "end": 18.7,
+    "id": "w40"
+  },
+  {
+    "text": "deploy.",
+    "start": 18.98,
+    "end": 19.22,
+    "id": "w41"
+  }
+]

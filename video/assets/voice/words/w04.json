@@ -1,0 +1,218 @@
+[
+  {
+    "text": "Our",
+    "start": 0.03,
+    "end": 0.12,
+    "id": "w0"
+  },
+  {
+    "text": "first",
+    "start": 0.24,
+    "end": 0.38,
+    "id": "w1"
+  },
+  {
+    "text": "version",
+    "start": 0.49,
+    "end": 0.83,
+    "id": "w2"
+  },
+  {
+    "text": "handed",
+    "start": 0.83,
+    "end": 1.16,
+    "id": "w3"
+  },
+  {
+    "text": "a",
+    "start": 1.16,
+    "end": 1.21,
+    "id": "w4"
+  },
+  {
+    "text": "quarter",
+    "start": 1.21,
+    "end": 1.64,
+    "id": "w5"
+  },
+  {
+    "text": "of",
+    "start": 1.64,
+    "end": 1.75,
+    "id": "w6"
+  },
+  {
+    "text": "its",
+    "start": 1.85,
+    "end": 1.99,
+    "id": "w7"
+  },
+  {
+    "text": "chats",
+    "start": 2,
+    "end": 2.19,
+    "id": "w8"
+  },
+  {
+    "text": "to",
+    "start": 2.28,
+    "end": 2.4,
+    "id": "w9"
+  },
+  {
+    "text": "humans.",
+    "start": 2.4,
+    "end": 3.24,
+    "id": "w10"
+  },
+  {
+    "text": "Here,",
+    "start": 3.27,
+    "end": 3.75,
+    "id": "w11"
+  },
+  {
+    "text": "it",
+    "start": 3.75,
+    "end": 3.92,
+    "id": "w12"
+  },
+  {
+    "text": "fixes",
+    "start": 3.93,
+    "end": 4.37,
+    "id": "w13"
+  },
+  {
+    "text": "a",
+    "start": 4.37,
+    "end": 4.45,
+    "id": "w14"
+  },
+  {
+    "text": "late",
+    "start": 4.45,
+    "end": 4.76,
+    "id": "w15"
+  },
+  {
+    "text": "order,",
+    "start": 4.81,
+    "end": 5.32,
+    "id": "w16"
+  },
+  {
+    "text": "then",
+    "start": 5.32,
+    "end": 5.54,
+    "id": "w17"
+  },
+  {
+    "text": "offers",
+    "start": 5.54,
+    "end": 5.88,
+    "id": "w18"
+  },
+  {
+    "text": "a",
+    "start": 5.88,
+    "end": 6,
+    "id": "w19"
+  },
+  {
+    "text": "specialist",
+    "start": 6,
+    "end": 6.68,
+    "id": "w20"
+  },
+  {
+    "text": "anyway.",
+    "start": 6.68,
+    "end": 7.4,
+    "id": "w21"
+  },
+  {
+    "text": "The",
+    "start": 7.43,
+    "end": 7.52,
+    "id": "w22"
+  },
+  {
+    "text": "customer",
+    "start": 7.64,
+    "end": 8.07,
+    "id": "w23"
+  },
+  {
+    "text": "says",
+    "start": 8.07,
+    "end": 8.32,
+    "id": "w24"
+  },
+  {
+    "text": "yes,",
+    "start": 8.32,
+    "end": 8.61,
+    "id": "w25"
+  },
+  {
+    "text": "and",
+    "start": 8.62,
+    "end": 8.68,
+    "id": "w26"
+  },
+  {
+    "text": "a",
+    "start": 8.8,
+    "end": 8.86,
+    "id": "w27"
+  },
+  {
+    "text": "human",
+    "start": 8.86,
+    "end": 9.15,
+    "id": "w28"
+  },
+  {
+    "text": "gets",
+    "start": 9.25,
+    "end": 9.42,
+    "id": "w29"
+  },
+  {
+    "text": "a",
+    "start": 9.42,
+    "end": 9.48,
+    "id": "w30"
+  },
+  {
+    "text": "ticket",
+    "start": 9.48,
+    "end": 9.9,
+    "id": "w31"
+  },
+  {
+    "text": "that",
+    "start": 9.9,
+    "end": 10.08,
+    "id": "w32"
+  },
+  {
+    "text": "was",
+    "start": 10.08,
+    "end": 10.2,
+    "id": "w33"
+  },
+  {
+    "text": "already",
+    "start": 10.2,
+    "end": 10.33,
+    "id": "w34"
+  },
+  {
+    "text": "solved.",
+    "start": 10.74,
+    "end": 10.96,
+    "id": "w35"
+  }
+]

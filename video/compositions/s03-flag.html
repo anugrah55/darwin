@@ -1,0 +1,68 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #121212; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border-radius: 16px; }
+    .tag { position: absolute; padding: 8px 22px; border-radius: 12px; font-weight: 700; white-space: nowrap; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.88); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; }
+  </style>
+  <div id="root" data-composition-id="s03" data-width="1920" data-height="1080">
+    <div id="s03-a" class="shot clip" data-start="0" data-duration="11.6" data-track-index="1" style="background:#121212">
+      <div id="s03-a-in" class="inner">
+        <div id="s03-a-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/diagram-flag.png" width="1600" height="774" alt="One Flagsmith flag holds the agent's whole brain" />
+          <div id="s03-a-hl1" class="hl" style="left:24px;top:114px;width:746px;height:578px;border:5px solid #8f7bff;background:rgba(143,123,255,0.07)"></div>
+          <div id="s03-a-hl2" class="hl" style="left:62px;top:179px;width:668px;height:121px;border:5px solid #7fd49b"></div>
+          <div id="s03-a-hl3" class="hl" style="left:414px;top:427px;width:316px;height:94px;border:5px solid #f2a35c"></div>
+        </div>
+        <div class="src"><i style="background:#8f7bff"></i>How Darwin uses Flagsmith</div>
+      </div>
+    </div>
+    <div id="s03-b" class="shot clip" data-start="11.4" data-duration="4.5" data-track-index="2" style="background:#101628">
+      <div id="s03-b-in" class="inner">
+        <div id="s03-b-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/fs-flag.png" width="2880" height="1800" alt="Flagsmith: Edit Feature shopbot_brain, control value JSON and variants" />
+          <div id="s03-b-hl1" class="hl" style="left:1160px;top:470px;width:1680px;height:262px;border:6px solid #7fd49b;background:rgba(127,212,155,0.06)"></div>
+          <div id="s03-b-tag1" class="tag" style="left:2180px;top:390px;font-size:48px;background:#7fd49b;color:#0f1a12">control = the champion</div>
+          <div id="s03-b-hl2" class="hl" style="left:1160px;top:1188px;width:1680px;height:430px;border:6px solid #f2a35c;background:rgba(242,163,92,0.06)"></div>
+          <div id="s03-b-tag2" class="tag" style="left:2190px;top:1130px;font-size:48px;background:#f2a35c;color:#24160a">variant = a challenger</div>
+        </div>
+        <div class="src"><i style="background:#8f7bff"></i>Flagsmith dashboard · the shopbot_brain flag</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function camTo(sel, r, t, d, ease, fr) { const v = view(r, fr); tl.fromTo(sel, { ...last[sel] }, { ...v, duration: d, ease: ease || "power2.inOut", immediateRender: false }, t); last[sel] = v; }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 16px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 16px)", duration: 0.45, ease: "power3.out" }, t); }
+    function pop(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power3.out" }, t); }
+
+    // A: the diagram; each part lights up when it is named
+    camSet("#s03-a-cam", [0, 20, 1600, 754], 0);
+    tl.fromTo("#s03-a-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 0);
+    hl("#s03-a-hl1", 5.4);
+    camTo("#s03-a-cam", [0, 20, 1320, 700], 7.2, 0.9, "power2.inOut");
+    hl("#s03-a-hl2", 7.7);
+    hl("#s03-a-hl3", 9.5);
+    tl.to("#s03-a-in", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 11.35);
+
+    // B: the real flag in Flagsmith
+    camSet("#s03-b-cam", [1120, 20, 1760, 1100], 0);
+    tl.fromTo("#s03-b-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 11.45);
+    hl("#s03-b-hl1", 12.3);
+    pop("#s03-b-tag1", 12.5);
+    camTo("#s03-b-cam", [1120, 340, 1760, 1300], 13.4, 0.8, "power2.inOut");
+    hl("#s03-b-hl2", 13.9);
+    pop("#s03-b-tag2", 14.1);
+
+    window.__timelines["s03"] = tl;
+  </script>
+</template>

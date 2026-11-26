@@ -1,0 +1,170 @@
+[
+  {
+    "text": "Today,",
+    "start": 0.06,
+    "end": 0.37,
+    "id": "w0"
+  },
+  {
+    "text": "teams",
+    "start": 0.72,
+    "end": 0.74,
+    "id": "w1"
+  },
+  {
+    "text": "change",
+    "start": 0.74,
+    "end": 1.11,
+    "id": "w2"
+  },
+  {
+    "text": "the",
+    "start": 1.11,
+    "end": 1.27,
+    "id": "w3"
+  },
+  {
+    "text": "prompts",
+    "start": 1.33,
+    "end": 1.68,
+    "id": "w4"
+  },
+  {
+    "text": "behind",
+    "start": 1.8,
+    "end": 2.08,
+    "id": "w5"
+  },
+  {
+    "text": "their",
+    "start": 2.08,
+    "end": 2.21,
+    "id": "w6"
+  },
+  {
+    "text": "AI",
+    "start": 2.26,
+    "end": 2.53,
+    "id": "w7"
+  },
+  {
+    "text": "features",
+    "start": 2.63,
+    "end": 2.96,
+    "id": "w8"
+  },
+  {
+    "text": "on",
+    "start": 3,
+    "end": 3.2,
+    "id": "w9"
+  },
+  {
+    "text": "gut",
+    "start": 3.23,
+    "end": 3.55,
+    "id": "w10"
+  },
+  {
+    "text": "feel.",
+    "start": 3.55,
+    "end": 4.04,
+    "id": "w11"
+  },
+  {
+    "text": "Tweak",
+    "start": 4.1,
+    "end": 4.39,
+    "id": "w12"
+  },
+  {
+    "text": "the",
+    "start": 4.39,
+    "end": 4.43,
+    "id": "w13"
+  },
+  {
+    "text": "prompt,",
+    "start": 4.76,
+    "end": 5.2,
+    "id": "w14"
+  },
+  {
+    "text": "read",
+    "start": 5.2,
+    "end": 5.41,
+    "id": "w15"
+  },
+  {
+    "text": "a",
+    "start": 5.51,
+    "end": 5.57,
+    "id": "w16"
+  },
+  {
+    "text": "few",
+    "start": 5.57,
+    "end": 5.72,
+    "id": "w17"
+  },
+  {
+    "text": "answers,",
+    "start": 5.84,
+    "end": 6.5,
+    "id": "w18"
+  },
+  {
+    "text": "deploy",
+    "start": 6.5,
+    "end": 7,
+    "id": "w19"
+  },
+  {
+    "text": "and",
+    "start": 7,
+    "end": 7.24,
+    "id": "w20"
+  },
+  {
+    "text": "hope.",
+    "start": 7.27,
+    "end": 7.7,
+    "id": "w21"
+  },
+  {
+    "text": "Nobody",
+    "start": 8.04,
+    "end": 8.29,
+    "id": "w22"
+  },
+  {
+    "text": "measures",
+    "start": 8.29,
+    "end": 8.35,
+    "id": "w23"
+  },
+  {
+    "text": "what",
+    "start": 8.7,
+    "end": 8.9,
+    "id": "w24"
+  },
+  {
+    "text": "customers",
+    "start": 8.9,
+    "end": 9.35,
+    "id": "w25"
+  },
+  {
+    "text": "actually",
+    "start": 9.43,
+    "end": 9.66,
+    "id": "w26"
+  },
+  {
+    "text": "experience.",
+    "start": 9.78,
+    "end": 10.48,
+    "id": "w27"
+  }
+]

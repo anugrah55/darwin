@@ -1,0 +1,230 @@
+[
+  {
+    "text": "Darwin",
+    "start": 0.05,
+    "end": 0.36,
+    "id": "w0"
+  },
+  {
+    "text": "puts",
+    "start": 0.44,
+    "end": 0.71,
+    "id": "w1"
+  },
+  {
+    "text": "the",
+    "start": 0.71,
+    "end": 0.87,
+    "id": "w2"
+  },
+  {
+    "text": "agent's",
+    "start": 0.92,
+    "end": 1.42,
+    "id": "w3"
+  },
+  {
+    "text": "whole",
+    "start": 1.42,
+    "end": 1.77,
+    "id": "w4"
+  },
+  {
+    "text": "brain,",
+    "start": 1.77,
+    "end": 2.26,
+    "id": "w5"
+  },
+  {
+    "text": "its",
+    "start": 2.31,
+    "end": 2.34,
+    "id": "w6"
+  },
+  {
+    "text": "prompt,",
+    "start": 2.46,
+    "end": 2.96,
+    "id": "w7"
+  },
+  {
+    "text": "model",
+    "start": 3.03,
+    "end": 3.44,
+    "id": "w8"
+  },
+  {
+    "text": "and",
+    "start": 3.44,
+    "end": 3.64,
+    "id": "w9"
+  },
+  {
+    "text": "effort",
+    "start": 3.64,
+    "end": 4.07,
+    "id": "w10"
+  },
+  {
+    "text": "into",
+    "start": 4.38,
+    "end": 4.6,
+    "id": "w11"
+  },
+  {
+    "text": "one",
+    "start": 4.6,
+    "end": 4.89,
+    "id": "w12"
+  },
+  {
+    "text": "flagsmith",
+    "start": 4.98,
+    "end": 5.5,
+    "id": "w13"
+  },
+  {
+    "text": "multivariate",
+    "start": 5.66,
+    "end": 6.35,
+    "id": "w14"
+  },
+  {
+    "text": "flag.",
+    "start": 6.44,
+    "end": 6.9,
+    "id": "w15"
+  },
+  {
+    "text": "The",
+    "start": 6.95,
+    "end": 7.1,
+    "id": "w16"
+  },
+  {
+    "text": "champion",
+    "start": 7.1,
+    "end": 7.65,
+    "id": "w17"
+  },
+  {
+    "text": "is",
+    "start": 7.65,
+    "end": 7.77,
+    "id": "w18"
+  },
+  {
+    "text": "the",
+    "start": 7.82,
+    "end": 7.98,
+    "id": "w19"
+  },
+  {
+    "text": "control",
+    "start": 7.98,
+    "end": 8.46,
+    "id": "w20"
+  },
+  {
+    "text": "and",
+    "start": 8.46,
+    "end": 8.66,
+    "id": "w21"
+  },
+  {
+    "text": "every",
+    "start": 8.66,
+    "end": 8.7,
+    "id": "w22"
+  },
+  {
+    "text": "challenger",
+    "start": 9.08,
+    "end": 9.68,
+    "id": "w23"
+  },
+  {
+    "text": "is",
+    "start": 9.68,
+    "end": 9.7,
+    "id": "w24"
+  },
+  {
+    "text": "a",
+    "start": 9.7,
+    "end": 9.93,
+    "id": "w25"
+  },
+  {
+    "text": "variant.",
+    "start": 9.93,
+    "end": 10.97,
+    "id": "w26"
+  },
+  {
+    "text": "So",
+    "start": 11.21,
+    "end": 11.3,
+    "id": "w27"
+  },
+  {
+    "text": "changing",
+    "start": 11.3,
+    "end": 11.88,
+    "id": "w28"
+  },
+  {
+    "text": "the",
+    "start": 11.88,
+    "end": 12.1,
+    "id": "w29"
+  },
+  {
+    "text": "agent",
+    "start": 12.1,
+    "end": 12.46,
+    "id": "w30"
+  },
+  {
+    "text": "is",
+    "start": 12.46,
+    "end": 12.6,
+    "id": "w31"
+  },
+  {
+    "text": "a",
+    "start": 12.6,
+    "end": 12.67,
+    "id": "w32"
+  },
+  {
+    "text": "flag",
+    "start": 12.67,
+    "end": 12.94,
+    "id": "w33"
+  },
+  {
+    "text": "change",
+    "start": 12.94,
+    "end": 13.39,
+    "id": "w34"
+  },
+  {
+    "text": "with",
+    "start": 13.39,
+    "end": 13.68,
+    "id": "w35"
+  },
+  {
+    "text": "no",
+    "start": 13.68,
+    "end": 13.82,
+    "id": "w36"
+  },
+  {
+    "text": "redeploy.",
+    "start": 13.82,
+    "end": 14.68,
+    "id": "w37"
+  }
+]

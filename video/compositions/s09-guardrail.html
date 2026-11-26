@@ -1,0 +1,149 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #121311; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; background: #121311; }
+    .fs { background: #101628; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border-radius: 14px; }
+    .tag { position: absolute; padding: 10px 26px; border-radius: 12px; font-weight: 700; white-space: nowrap; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.9); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #7fd49b; }
+    .src i.f { background: #8f7bff; }
+    .src i.k { background: #f0806f; }
+  </style>
+  <div id="root" data-composition-id="s09" data-width="1920" data-height="1080">
+    <!-- a: the teammate's challenger -->
+    <div id="s09-a" class="shot clip" data-start="0" data-duration="4.4" data-track-index="1">
+      <div id="s09-a-in" class="inner">
+        <div id="s09-a-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/gen6-card.png" width="2880" height="1800" alt="Darwin Lab: launch card for gen6, written by a teammate" />
+          <div id="s09-a-hl1" class="hl" style="left:1570px;top:276px;width:960px;height:56px;border:6px solid #f2b65c"></div>
+          <div id="s09-a-hl2" class="hl" style="left:1570px;top:460px;width:1130px;height:92px;border:6px solid #f2b65c;background:rgba(242,182,92,0.07)"></div>
+        </div>
+        <div class="src"><i></i>Darwin Lab · live run, 26 Nov · a teammate's challenger</div>
+      </div>
+    </div>
+    <!-- b: approved, experiment starts -->
+    <div id="s09-b" class="shot clip" data-start="4.2" data-duration="2.4" data-track-index="2">
+      <div id="s09-b-in" class="inner">
+        <div id="s09-b-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/exp5-running.png" width="2880" height="1800" alt="Darwin Lab: experiment 5, gen5 vs gen6, approved by Anugrah" />
+          <div id="s09-b-hl" class="hl" style="left:462px;top:1008px;width:268px;height:48px;border:6px solid #7fd49b"></div>
+        </div>
+        <div class="src"><i></i>Experiment #5 starts, approved by Anugrah</div>
+      </div>
+    </div>
+    <!-- c: Flagsmith scores cost and calls gen6 a winner -->
+    <div id="s09-c" class="shot clip fs" data-start="6.4" data-duration="4.7" data-track-index="3">
+      <div id="s09-c-in" class="inner">
+        <div id="s09-c-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/fs-exp5.png" width="2880" height="1800" alt="Flagsmith experiment 5: 94% winner probability on cost" />
+          <div id="s09-c-hl1" class="hl" style="left:1384px;top:848px;width:710px;height:268px;border:7px solid #8f7bff;background:rgba(143,123,255,0.08)"></div>
+          <div id="s09-c-tag" class="tag" style="left:1384px;top:1140px;font-size:46px;background:#8f7bff;color:#120c2c">Flagsmith scores the primary metric: cost</div>
+          <div id="s09-c-hl2" class="hl" style="left:650px;top:606px;width:2180px;height:218px;border:7px solid #7fd49b"></div>
+        </div>
+        <div class="src"><i class="f"></i>Flagsmith dashboard · experiment #5 · 220 simulated customers</div>
+      </div>
+    </div>
+    <!-- d: Darwin's guardrail -->
+    <div id="s09-d" class="shot clip" data-start="10.9" data-duration="4.8" data-track-index="4">
+      <div id="s09-d-in" class="inner">
+        <div id="s09-d-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/kill-card.png" width="2880" height="1800" alt="Darwin Lab: resolution 99% vs 45%, worse than the margin" />
+          <div id="s09-d-hl1" class="hl" style="left:176px;top:686px;width:1316px;height:300px;border:7px solid #f0806f;background:rgba(240,128,111,0.06)"></div>
+          <div id="s09-d-hl2" class="hl" style="left:1316px;top:796px;width:154px;height:44px;border:6px solid #f0806f;background:rgba(240,128,111,0.14)"></div>
+        </div>
+        <div class="src"><i class="k"></i>Darwin Lab · the guardrails Darwin checks on Flagsmith's numbers</div>
+      </div>
+    </div>
+    <!-- e: the KILL card -->
+    <div id="s09-e" class="shot clip" data-start="15.5" data-duration="2.4" data-track-index="5">
+      <div id="s09-e-in" class="inner">
+        <div id="s09-e-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/kill-card.png" width="2880" height="1800" alt="Darwin Lab: Kill gen6? recommendation" />
+          <div id="s09-e-hl" class="hl" style="left:1570px;top:120px;width:1135px;height:118px;border:7px solid #f0806f;background:rgba(240,128,111,0.08)"></div>
+        </div>
+        <div class="src"><i class="k"></i>Darwin's fixed rules recommend: KILL</div>
+      </div>
+    </div>
+    <!-- f: Anugrah approves the kill -->
+    <div id="s09-f" class="shot clip" data-start="17.7" data-duration="1.8" data-track-index="6">
+      <div id="s09-f-in" class="inner">
+        <div id="s09-f-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/kill-armed.png" width="2880" height="1800" alt="Darwin Lab: Yes, run 2 commands as Anugrah" />
+          <div id="s09-f-hl" class="hl" style="left:1570px;top:753px;width:549px;height:92px;border:6px solid #7fd49b"></div>
+        </div>
+        <div class="src"><i></i>A person approves the kill</div>
+      </div>
+    </div>
+    <!-- g: Flagsmith keeps everyone on the champion -->
+    <div id="s09-g" class="shot clip fs" data-start="19.3" data-duration="3.2" data-track-index="7">
+      <div id="s09-g-in" class="inner">
+        <div id="s09-g-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/fs-exp5.png" width="2880" height="1800" alt="Flagsmith experiment 5: killed in Darwin by Anugrah; control rolled out to everyone" />
+          <div id="s09-g-hl1" class="hl" style="left:2690px;top:470px;width:142px;height:52px;border:6px solid #f0806f"></div>
+          <div id="s09-g-hl1b" class="hl" style="left:646px;top:512px;width:1196px;height:52px;border:6px solid #f0806f"></div>
+          <div id="s09-g-hl2" class="hl" style="left:2118px;top:848px;width:712px;height:186px;border:7px solid #7fd49b;background:rgba(127,212,155,0.08)"></div>
+        </div>
+        <div class="src"><i class="f"></i>Flagsmith dashboard · the record and the rollout</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function camTo(sel, r, t, d, ease, fr) { const v = view(r, fr); tl.fromTo(sel, { ...last[sel] }, { ...v, duration: d, ease: ease || "power2.inOut", immediateRender: false }, t); last[sel] = v; }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 14px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 14px)", duration: 0.45, ease: "power3.out" }, t); }
+    function pop(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power3.out" }, t); }
+    function swapIn(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.26, ease: "power2.out" }, t); }
+    function swapOut(sel, t) { tl.to(sel, { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, t); }
+
+    camSet("#s09-a-cam", [1560, 110, 1180, 540], 0);
+    swapIn("#s09-a-in", 0);
+    hl("#s09-a-hl1", 1.0);
+    hl("#s09-a-hl2", 2.1);
+    swapOut("#s09-a-in", 4.2);
+
+    camSet("#s09-b-cam", [150, 880, 1400, 600], 0);
+    swapIn("#s09-b-in", 4.25);
+    hl("#s09-b-hl", 4.7);
+    swapOut("#s09-b-in", 6.4);
+
+    camSet("#s09-c-cam", [640, 560, 2200, 640], 0);
+    swapIn("#s09-c-in", 6.45);
+    hl("#s09-c-hl1", 6.8);
+    pop("#s09-c-tag", 7.1);
+    hl("#s09-c-hl2", 8.8);
+    swapOut("#s09-c-in", 10.9);
+
+    camSet("#s09-d-cam", [170, 310, 1340, 700], 0);
+    swapIn("#s09-d-in", 10.95);
+    hl("#s09-d-hl1", 11.5);
+    camTo("#s09-d-cam", [170, 560, 1340, 520], 12.6, 0.9, "power2.inOut");
+    hl("#s09-d-hl2", 14.0);
+    swapOut("#s09-d-in", 15.5);
+
+    camSet("#s09-e-cam", [1560, 80, 1180, 620], 0);
+    swapIn("#s09-e-in", 15.55);
+    hl("#s09-e-hl", 16.0);
+    swapOut("#s09-e-in", 17.7);
+
+    camSet("#s09-f-cam", [1560, 260, 1180, 640], 0);
+    swapIn("#s09-f-in", 17.75);
+    hl("#s09-f-hl", 18.0);
+    swapOut("#s09-f-in", 19.3);
+
+    camSet("#s09-g-cam", [640, 420, 2200, 700], 0);
+    swapIn("#s09-g-in", 19.35);
+    hl("#s09-g-hl1", 19.6);
+    hl("#s09-g-hl1b", 19.75);
+    hl("#s09-g-hl2", 20.3);
+
+    window.__timelines["s09"] = tl;
+  </script>
+</template>

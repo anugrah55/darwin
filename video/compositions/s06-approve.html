@@ -1,0 +1,71 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #121311; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; background: #121311; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border-radius: 14px; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.88); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #7fd49b; }
+  </style>
+  <div id="root" data-composition-id="s06" data-width="1920" data-height="1080">
+    <div id="s06-a" class="shot clip" data-start="0" data-duration="6" data-track-index="1">
+      <div id="s06-a-in" class="inner">
+        <div id="s06-a-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/gen6-card.png" width="2880" height="1800" alt="Darwin Lab: launch card for a challenger, waiting for approval" />
+          <div id="s06-a-hl1" class="hl" style="left:1566px;top:416px;width:1140px;height:180px;border:6px solid #7fd49b"></div>
+          <div id="s06-a-hl2" class="hl" style="left:1566px;top:730px;width:300px;height:62px;border:6px solid #7fd49b;background:rgba(127,212,155,0.08)"></div>
+        </div>
+        <div class="src"><i></i>Darwin Lab · a launch card waiting for a person</div>
+      </div>
+    </div>
+    <div id="s06-b" class="shot clip" data-start="5.8" data-duration="2.9" data-track-index="2">
+      <div id="s06-b-in" class="inner">
+        <div id="s06-b-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/gen6-cmds.png" width="2880" height="1800" alt="Darwin Lab: the exact Flagsmith CLI commands approving will run" />
+          <div id="s06-b-hl1" class="hl" style="left:1568px;top:60px;width:1138px;height:544px;border:6px solid #8f7bff;background:rgba(143,123,255,0.06)"></div>
+        </div>
+        <div class="src"><i style="background:#8f7bff"></i>Approving runs these Flagsmith CLI commands, exactly</div>
+      </div>
+    </div>
+    <div id="s06-c" class="shot clip" data-start="8.5" data-duration="3.3" data-track-index="3">
+      <div id="s06-c-in" class="inner">
+        <div id="s06-c-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/gen6-armed.png" width="2880" height="1800" alt="Darwin Lab: the approve button armed, Yes, run 3 commands as Anugrah" />
+          <div id="s06-c-hl1" class="hl" style="left:1570px;top:753px;width:549px;height:92px;border:6px solid #7fd49b"></div>
+        </div>
+        <div class="src"><i></i>Live run · the button names who will run them</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function camTo(sel, r, t, d, ease, fr) { const v = view(r, fr); tl.fromTo(sel, { ...last[sel] }, { ...v, duration: d, ease: ease || "power2.inOut", immediateRender: false }, t); last[sel] = v; }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 14px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 14px)", duration: 0.45, ease: "power3.out" }, t); }
+    function swapIn(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.28, ease: "power2.out" }, t); }
+    function swapOut(sel, t) { tl.to(sel, { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, t); }
+
+    camSet("#s06-a-cam", [1560, 100, 1180, 720], 0);
+    swapIn("#s06-a-in", 0);
+    hl("#s06-a-hl1", 3.0);
+    camTo("#s06-a-cam", [1560, 420, 1180, 720], 4.0, 0.7, "power2.inOut");
+    hl("#s06-a-hl2", 4.7);
+    swapOut("#s06-a-in", 5.8);
+
+    camSet("#s06-b-cam", [1560, 20, 1180, 720], 0);
+    swapIn("#s06-b-in", 5.85);
+    hl("#s06-b-hl1", 6.3);
+    swapOut("#s06-b-in", 8.5);
+
+    camSet("#s06-c-cam", [1560, 150, 1180, 760], 0);
+    swapIn("#s06-c-in", 8.55);
+    hl("#s06-c-hl1", 9.0);
+
+    window.__timelines["s06"] = tl;
+  </script>
+</template>

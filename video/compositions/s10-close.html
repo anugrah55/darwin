@@ -1,0 +1,62 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #10161d; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; }
+    .inner { position: absolute; inset: 0; }
+    #s10-hero { position: absolute; left: 0; top: 0; width: 1100px; height: 1080px; overflow: hidden; -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 50%, #000 70%, transparent 100%); mask-image: radial-gradient(ellipse 62% 48% at 50% 50%, #000 70%, transparent 100%); }
+    #s10-hero-cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .stat { position: absolute; left: 1120px; white-space: nowrap; line-height: 1; }
+    .stat b { font-size: 112px; font-weight: 900; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .stat span { display: block; margin-top: 12px; font-size: 38px; font-weight: 700; color: #b9b7af; }
+    #s10-word { position: absolute; left: 0; right: 0; top: 150px; text-align: center; font-size: 230px; font-weight: 900; letter-spacing: -0.055em; line-height: 1; }
+    .tagl { position: absolute; left: 0; right: 0; text-align: center; font-size: 66px; font-weight: 700; letter-spacing: -0.02em; }
+    #s10-t2 em { font-style: normal; color: #a796ff; }
+    #s10-t3 em { font-style: normal; color: #7fd49b; }
+    #s10-url { position: absolute; left: 0; right: 0; top: 820px; text-align: center; font-size: 38px; font-weight: 700; color: #d9d7d0; }
+    #s10-meta { position: absolute; left: 0; right: 0; top: 876px; text-align: center; font-size: 28px; color: #8f8d86; }
+  </style>
+  <div id="root" data-composition-id="s10" data-width="1920" data-height="1080">
+    <div id="s10-a" class="shot clip" data-start="0" data-duration="6.2" data-track-index="1">
+      <div id="s10-a-in" class="inner">
+        <div id="s10-hero" data-layout-allow-overflow>
+          <div id="s10-hero-cam"><img src="assets/img/hero.png" width="3200" height="1120" alt="The lineage curve: gen1 to gen5 champion, gen6 killed" /></div>
+        </div>
+        <div id="s10-st1" class="stat" style="top:250px"><b>6</b><span>generations of ShopBot</span></div>
+        <div id="s10-st2" class="stat" style="top:450px"><b>5</b><span>Flagsmith experiments</span></div>
+        <div id="s10-st3" class="stat" style="top:650px"><b>$1.09</b><span>of Claude, the whole project</span></div>
+      </div>
+    </div>
+    <div id="s10-b" class="shot clip" data-start="6" data-duration="10" data-track-index="2" style="background:#121311">
+      <div id="s10-b-in" class="inner">
+        <div id="s10-word">Darwin</div>
+        <div id="s10-t1" class="tagl" style="top:440px">Your AI agent evolves.</div>
+        <div id="s10-t2" class="tagl" style="top:540px"><em>Flagsmith</em> decides who survives.</div>
+        <div id="s10-t3" class="tagl" style="top:640px">You <em>approve</em> every change.</div>
+        <div id="s10-url">github.com/anugrah55/darwin</div>
+        <div id="s10-meta">Toggle Wars · Track 02 · Flagsmith Experimentation + Claude · customers in the demo are simulated</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    function pop(sel, t, d) { tl.fromTo(sel, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: d || 0.22, ease: "power3.out" }, t); }
+
+    // A: the lineage and the totals
+    tl.fromTo("#s10-a-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 0);
+    tl.fromTo("#s10-hero-cam", { x: -930, y: 175, scale: 0.64 }, { x: -980, y: 160, scale: 0.665, duration: 6.2, ease: "none" }, 0);
+    pop("#s10-st1", 0.65);
+    pop("#s10-st2", 2.05);
+    pop("#s10-st3", 4.05);
+    tl.to("#s10-a-in", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power2.in" }, 6.0);
+
+    // B: the end card, one line per spoken line
+    tl.fromTo("#s10-word", { opacity: 0, scale: 1.06, filter: "blur(12px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.7, ease: "expo.out" }, 6.1);
+    pop("#s10-t1", 6.95);
+    pop("#s10-t2", 8.65);
+    pop("#s10-t3", 10.75);
+    pop("#s10-url", 12.2, 0.3);
+    pop("#s10-meta", 12.5, 0.3);
+
+    window.__timelines["s10"] = tl;
+  </script>
+</template>

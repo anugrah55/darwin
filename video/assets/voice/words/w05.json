@@ -1,0 +1,188 @@
+[
+  {
+    "text": "Darwin's",
+    "start": 0.03,
+    "end": 0.6,
+    "id": "w0"
+  },
+  {
+    "text": "coach,",
+    "start": 0.6,
+    "end": 1.13,
+    "id": "w1"
+  },
+  {
+    "text": "built",
+    "start": 1.13,
+    "end": 1.5,
+    "id": "w2"
+  },
+  {
+    "text": "on",
+    "start": 1.52,
+    "end": 1.66,
+    "id": "w3"
+  },
+  {
+    "text": "Claude",
+    "start": 1.66,
+    "end": 2.03,
+    "id": "w4"
+  },
+  {
+    "text": "Opus,",
+    "start": 2.03,
+    "end": 2.56,
+    "id": "w5"
+  },
+  {
+    "text": "read",
+    "start": 2.56,
+    "end": 2.67,
+    "id": "w6"
+  },
+  {
+    "text": "28",
+    "start": 2.91,
+    "end": 3.34,
+    "id": "w7"
+  },
+  {
+    "text": "failed",
+    "start": 3.37,
+    "end": 3.84,
+    "id": "w8"
+  },
+  {
+    "text": "chats.",
+    "start": 3.84,
+    "end": 4.48,
+    "id": "w9"
+  },
+  {
+    "text": "It",
+    "start": 4.52,
+    "end": 4.6,
+    "id": "w10"
+  },
+  {
+    "text": "found",
+    "start": 4.6,
+    "end": 4.89,
+    "id": "w11"
+  },
+  {
+    "text": "the",
+    "start": 4.97,
+    "end": 5.11,
+    "id": "w12"
+  },
+  {
+    "text": "patterns,",
+    "start": 5.11,
+    "end": 5.74,
+    "id": "w13"
+  },
+  {
+    "text": "with",
+    "start": 5.74,
+    "end": 5.98,
+    "id": "w14"
+  },
+  {
+    "text": "counts",
+    "start": 5.98,
+    "end": 6.28,
+    "id": "w15"
+  },
+  {
+    "text": "and",
+    "start": 6.38,
+    "end": 6.55,
+    "id": "w16"
+  },
+  {
+    "text": "real",
+    "start": 6.55,
+    "end": 6.66,
+    "id": "w17"
+  },
+  {
+    "text": "quotes,",
+    "start": 6.9,
+    "end": 7.36,
+    "id": "w18"
+  },
+  {
+    "text": "and",
+    "start": 7.39,
+    "end": 7.51,
+    "id": "w19"
+  },
+  {
+    "text": "wrote",
+    "start": 7.51,
+    "end": 7.77,
+    "id": "w20"
+  },
+  {
+    "text": "a",
+    "start": 7.77,
+    "end": 7.81,
+    "id": "w21"
+  },
+  {
+    "text": "challenger",
+    "start": 7.81,
+    "end": 8.36,
+    "id": "w22"
+  },
+  {
+    "text": "with",
+    "start": 8.36,
+    "end": 8.57,
+    "id": "w23"
+  },
+  {
+    "text": "a",
+    "start": 8.57,
+    "end": 8.62,
+    "id": "w24"
+  },
+  {
+    "text": "hypothesis",
+    "start": 8.87,
+    "end": 9.32,
+    "id": "w25"
+  },
+  {
+    "text": "that",
+    "start": 9.35,
+    "end": 9.57,
+    "id": "w26"
+  },
+  {
+    "text": "Flax",
+    "start": 9.57,
+    "end": 9.73,
+    "id": "w27"
+  },
+  {
+    "text": "Smith",
+    "start": 9.81,
+    "end": 10.1,
+    "id": "w28"
+  },
+  {
+    "text": "can",
+    "start": 10.1,
+    "end": 10.35,
+    "id": "w29"
+  },
+  {
+    "text": "test.",
+    "start": 10.35,
+    "end": 10.75,
+    "id": "w30"
+  }
+]

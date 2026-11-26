@@ -1,0 +1,308 @@
+[
+  {
+    "text": "In",
+    "start": 0.05,
+    "end": 0.14,
+    "id": "w0"
+  },
+  {
+    "text": "a",
+    "start": 0.14,
+    "end": 0.21,
+    "id": "w1"
+  },
+  {
+    "text": "live",
+    "start": 0.21,
+    "end": 0.46,
+    "id": "w2"
+  },
+  {
+    "text": "run,",
+    "start": 0.55,
+    "end": 0.76,
+    "id": "w3"
+  },
+  {
+    "text": "a",
+    "start": 0.84,
+    "end": 0.89,
+    "id": "w4"
+  },
+  {
+    "text": "teammate",
+    "start": 0.89,
+    "end": 1.29,
+    "id": "w5"
+  },
+  {
+    "text": "tried",
+    "start": 1.29,
+    "end": 1.54,
+    "id": "w6"
+  },
+  {
+    "text": "skipping",
+    "start": 1.54,
+    "end": 1.95,
+    "id": "w7"
+  },
+  {
+    "text": "policy",
+    "start": 2.03,
+    "end": 2.36,
+    "id": "w8"
+  },
+  {
+    "text": "lookups",
+    "start": 2.36,
+    "end": 2.81,
+    "id": "w9"
+  },
+  {
+    "text": "to",
+    "start": 3.03,
+    "end": 3.09,
+    "id": "w10"
+  },
+  {
+    "text": "save",
+    "start": 3.09,
+    "end": 3.32,
+    "id": "w11"
+  },
+  {
+    "text": "money.",
+    "start": 3.36,
+    "end": 3.96,
+    "id": "w12"
+  },
+  {
+    "text": "And",
+    "start": 4.01,
+    "end": 4.16,
+    "id": "w13"
+  },
+  {
+    "text": "Anugra",
+    "start": 4.16,
+    "end": 4.55,
+    "id": "w14"
+  },
+  {
+    "text": "approved",
+    "start": 4.55,
+    "end": 5.08,
+    "id": "w15"
+  },
+  {
+    "text": "the",
+    "start": 5.08,
+    "end": 5.26,
+    "id": "w16"
+  },
+  {
+    "text": "test.",
+    "start": 5.34,
+    "end": 5.62,
+    "id": "w17"
+  },
+  {
+    "text": "Flaxmith,",
+    "start": 5.67,
+    "end": 6.47,
+    "id": "w18"
+  },
+  {
+    "text": "scoring",
+    "start": 6.47,
+    "end": 7.07,
+    "id": "w19"
+  },
+  {
+    "text": "cost",
+    "start": 7.07,
+    "end": 7.4,
+    "id": "w20"
+  },
+  {
+    "text": "alone,",
+    "start": 7.46,
+    "end": 8.04,
+    "id": "w21"
+  },
+  {
+    "text": "gave",
+    "start": 8.04,
+    "end": 8.34,
+    "id": "w22"
+  },
+  {
+    "text": "it",
+    "start": 8.34,
+    "end": 8.43,
+    "id": "w23"
+  },
+  {
+    "text": "a",
+    "start": 8.43,
+    "end": 8.65,
+    "id": "w24"
+  },
+  {
+    "text": "94%",
+    "start": 8.65,
+    "end": 9.11,
+    "id": "w25"
+  },
+  {
+    "text": "chance",
+    "start": 9.11,
+    "end": 9.29,
+    "id": "w26"
+  },
+  {
+    "text": "to",
+    "start": 9.62,
+    "end": 9.89,
+    "id": "w27"
+  },
+  {
+    "text": "win.",
+    "start": 9.89,
+    "end": 10.7,
+    "id": "w28"
+  },
+  {
+    "text": "But",
+    "start": 10.75,
+    "end": 10.99,
+    "id": "w29"
+  },
+  {
+    "text": "resolution",
+    "start": 10.99,
+    "end": 11.97,
+    "id": "w30"
+  },
+  {
+    "text": "collapsed",
+    "start": 11.97,
+    "end": 12.85,
+    "id": "w31"
+  },
+  {
+    "text": "from",
+    "start": 12.85,
+    "end": 13.24,
+    "id": "w32"
+  },
+  {
+    "text": "99%",
+    "start": 13.24,
+    "end": 13.91,
+    "id": "w33"
+  },
+  {
+    "text": "to",
+    "start": 13.91,
+    "end": 14.1,
+    "id": "w34"
+  },
+  {
+    "text": "45%.",
+    "start": 14.1,
+    "end": 15.12,
+    "id": "w35"
+  },
+  {
+    "text": "Darwin's",
+    "start": 15.17,
+    "end": 15.58,
+    "id": "w36"
+  },
+  {
+    "text": "guardrail",
+    "start": 15.67,
+    "end": 16.18,
+    "id": "w37"
+  },
+  {
+    "text": "recommended",
+    "start": 16.18,
+    "end": 16.88,
+    "id": "w38"
+  },
+  {
+    "text": "a",
+    "start": 16.88,
+    "end": 16.92,
+    "id": "w39"
+  },
+  {
+    "text": "kill.",
+    "start": 16.96,
+    "end": 17.4,
+    "id": "w40"
+  },
+  {
+    "text": "Anugra",
+    "start": 17.47,
+    "end": 17.84,
+    "id": "w41"
+  },
+  {
+    "text": "approved",
+    "start": 17.84,
+    "end": 18.41,
+    "id": "w42"
+  },
+  {
+    "text": "it,",
+    "start": 18.41,
+    "end": 18.71,
+    "id": "w43"
+  },
+  {
+    "text": "and",
+    "start": 18.72,
+    "end": 18.88,
+    "id": "w44"
+  },
+  {
+    "text": "every",
+    "start": 18.88,
+    "end": 18.99,
+    "id": "w45"
+  },
+  {
+    "text": "customer",
+    "start": 19.14,
+    "end": 19.53,
+    "id": "w46"
+  },
+  {
+    "text": "stayed",
+    "start": 19.53,
+    "end": 19.83,
+    "id": "w47"
+  },
+  {
+    "text": "on",
+    "start": 19.83,
+    "end": 19.88,
+    "id": "w48"
+  },
+  {
+    "text": "the",
+    "start": 19.94,
+    "end": 20.05,
+    "id": "w49"
+  },
+  {
+    "text": "champion.",
+    "start": 20.13,
+    "end": 20.64,
+    "id": "w50"
+  }
+]

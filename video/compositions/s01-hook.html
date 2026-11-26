@@ -1,0 +1,52 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #10161d; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border: 6px solid #7fd49b; border-radius: 16px; background: rgba(127, 212, 155, 0.10); }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.88); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #7fd49b; }
+  </style>
+  <div id="root" data-composition-id="s01" data-width="1920" data-height="1080">
+    <div id="s01-a" class="shot clip" data-start="0" data-duration="9.8" data-track-index="1">
+      <div id="s01-a-in" class="inner">
+        <div id="s01-a-cam" class="cam" data-layout-allow-overflow><img src="assets/img/hero.png" width="3200" height="1120" alt="Darwin hero: the lineage of generations gen1 to gen5 and the killed gen6 branch" /></div>
+      </div>
+    </div>
+    <div id="s01-b" class="shot clip" data-start="9.6" data-duration="3.2" data-track-index="2" style="background:#121311">
+      <div id="s01-b-in" class="inner">
+        <div id="s01-b-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/lineage6.png" width="2880" height="1800" alt="Darwin Lab lineage" />
+          <div id="s01-b-hl" class="hl" style="left:1382px;top:118px;width:444px;height:78px"></div>
+        </div>
+        <div class="src"><i></i>Darwin Lab · every change is approved by a person</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FULL = { x: 0, y: 0, w: 1920, h: 1080 };
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function camTo(sel, r, t, d, ease, fr) { const v = view(r, fr); tl.fromTo(sel, { ...last[sel] }, { ...v, duration: d, ease: ease || "power2.inOut", immediateRender: false }, t); last[sel] = v; }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 16px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 16px)", duration: 0.45, ease: "power3.out" }, t); }
+
+    // A: the hero banner, title first, then the lineage curve
+    camSet("#s01-a-cam", [0, 0, 1992, 1120], 0, FULL);
+    camTo("#s01-a-cam", [1208, 0, 1992, 1120], 2.3, 2.2, "power2.inOut", FULL);
+    camTo("#s01-a-cam", [1760, 60, 1440, 806], 6.4, 3.0, "power1.inOut", FULL);
+    tl.to("#s01-a-in", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 9.6);
+
+    // B: the real Lab, approver chip
+    camSet("#s01-b-cam", [120, 60, 2640, 1140], 0);
+    tl.fromTo("#s01-b-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 9.6);
+    camTo("#s01-b-cam", [120, 40, 2300, 1000], 9.9, 2.6, "power1.inOut");
+    hl("#s01-b-hl", 10.1);
+
+    window.__timelines["s01"] = tl;
+  </script>
+</template>

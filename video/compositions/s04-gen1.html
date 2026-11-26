@@ -1,0 +1,71 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #121311; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border-radius: 14px; }
+    .tag { position: absolute; padding: 10px 24px; border-radius: 12px; font-weight: 700; white-space: nowrap; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(14, 14, 14, 0.88); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #7fd49b; }
+    #s04-kicker { position: absolute; left: 180px; top: 200px; font-size: 44px; color: #a9a79f; }
+    #s04-num { position: absolute; left: 168px; top: 262px; font-size: 330px; font-weight: 900; letter-spacing: -0.05em; line-height: 1; color: #f2b65c; font-variant-numeric: tabular-nums; }
+    #s04-line { position: absolute; left: 180px; top: 610px; font-size: 72px; font-weight: 700; letter-spacing: -0.02em; }
+    #s04-sub { position: absolute; left: 180px; top: 712px; font-size: 36px; color: #a9a79f; }
+  </style>
+  <div id="root" data-composition-id="s04" data-width="1920" data-height="1080">
+    <div id="s04-a" class="shot clip" data-start="0" data-duration="4" data-track-index="1">
+      <div id="s04-a-in" class="inner">
+        <div id="s04-kicker">gen1, the baseline prompt</div>
+        <div id="s04-num">25%</div>
+        <div id="s04-line">of chats handed to a human</div>
+        <div id="s04-sub">73% resolved · 120 simulated customers</div>
+      </div>
+    </div>
+    <div id="s04-b" class="shot clip" data-start="3.8" data-duration="8.8" data-track-index="2">
+      <div id="s04-b-in" class="inner">
+        <div id="s04-b-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/lab-chat.png" width="2880" height="1800" alt="Darwin Lab: a gen1 conversation that was handed to a human" />
+          <div id="s04-b-hl1" class="hl" style="left:1060px;top:712px;width:1520px;height:80px;border:6px solid #f2b65c;background:rgba(242,182,92,0.08)"></div>
+          <div id="s04-b-hl2" class="hl" style="left:210px;top:794px;width:548px;height:80px;border:6px solid #d8d6cf"></div>
+          <div id="s04-b-hl3" class="hl" style="left:212px;top:872px;width:1656px;height:52px;border:6px solid #f0806f;background:rgba(240,128,111,0.10)"></div>
+          <div id="s04-b-tag" class="tag" style="left:212px;top:1104px;font-size:48px;background:#f0806f;color:#2a0f0b">Solved, then escalated anyway</div>
+        </div>
+        <div class="src"><i></i>Darwin Lab · a real gen1 conversation (simulated customer)</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function camTo(sel, r, t, d, ease, fr) { const v = view(r, fr); tl.fromTo(sel, { ...last[sel] }, { ...v, duration: d, ease: ease || "power2.inOut", immediateRender: false }, t); last[sel] = v; }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 14px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 14px)", duration: 0.45, ease: "power3.out" }, t); }
+    function pop(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power3.out" }, t); }
+
+    // A: the number
+    pop("#s04-kicker", 0.3);
+    const n = { v: 0 };
+    const numEl = document.querySelector("#s04-num");
+    tl.fromTo(n, { v: 0 }, { v: 25, duration: 1.3, ease: "power2.out", onUpdate: () => { numEl.textContent = Math.round(n.v) + "%"; } }, 1.2);
+    tl.fromTo("#s04-num", { opacity: 0 }, { opacity: 1, duration: 0.15 }, 1.2);
+    pop("#s04-line", 1.6);
+    pop("#s04-sub", 1.9);
+    tl.to("#s04-a-in", { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power2.in" }, 3.8);
+
+    // B: the conversation
+    camSet("#s04-b-cam", [180, 90, 1700, 756], 0);
+    tl.fromTo("#s04-b-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 3.85);
+    camTo("#s04-b-cam", [960, 380, 1700, 756], 5.7, 0.7, "power2.inOut");
+    hl("#s04-b-hl1", 6.2);
+    camTo("#s04-b-cam", [180, 520, 1700, 756], 7.6, 0.7, "power2.inOut");
+    hl("#s04-b-hl2", 8.2);
+    hl("#s04-b-hl3", 9.3);
+    pop("#s04-b-tag", 9.7);
+
+    window.__timelines["s04"] = tl;
+  </script>
+</template>

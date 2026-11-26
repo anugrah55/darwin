@@ -1,0 +1,170 @@
+[
+  {
+    "text": "Nothing",
+    "start": 0.02,
+    "end": 0.43,
+    "id": "w0"
+  },
+  {
+    "text": "goes",
+    "start": 0.43,
+    "end": 0.67,
+    "id": "w1"
+  },
+  {
+    "text": "live",
+    "start": 0.67,
+    "end": 0.91,
+    "id": "w2"
+  },
+  {
+    "text": "until",
+    "start": 0.91,
+    "end": 1.21,
+    "id": "w3"
+  },
+  {
+    "text": "a",
+    "start": 1.21,
+    "end": 1.32,
+    "id": "w4"
+  },
+  {
+    "text": "person",
+    "start": 1.32,
+    "end": 1.63,
+    "id": "w5"
+  },
+  {
+    "text": "approves.",
+    "start": 1.68,
+    "end": 2.36,
+    "id": "w6"
+  },
+  {
+    "text": "Every",
+    "start": 2.37,
+    "end": 2.67,
+    "id": "w7"
+  },
+  {
+    "text": "card",
+    "start": 2.67,
+    "end": 2.88,
+    "id": "w8"
+  },
+  {
+    "text": "shows",
+    "start": 2.94,
+    "end": 3.16,
+    "id": "w9"
+  },
+  {
+    "text": "the",
+    "start": 3.26,
+    "end": 3.39,
+    "id": "w10"
+  },
+  {
+    "text": "evidence,",
+    "start": 3.42,
+    "end": 3.99,
+    "id": "w11"
+  },
+  {
+    "text": "the",
+    "start": 4.04,
+    "end": 4.23,
+    "id": "w12"
+  },
+  {
+    "text": "prompt",
+    "start": 4.29,
+    "end": 4.43,
+    "id": "w13"
+  },
+  {
+    "text": "diff,",
+    "start": 4.73,
+    "end": 5.14,
+    "id": "w14"
+  },
+  {
+    "text": "and",
+    "start": 5.15,
+    "end": 5.34,
+    "id": "w15"
+  },
+  {
+    "text": "the",
+    "start": 5.34,
+    "end": 5.54,
+    "id": "w16"
+  },
+  {
+    "text": "exact",
+    "start": 5.54,
+    "end": 5.87,
+    "id": "w17"
+  },
+  {
+    "text": "flagsmith",
+    "start": 5.87,
+    "end": 6.47,
+    "id": "w18"
+  },
+  {
+    "text": "CLI",
+    "start": 6.47,
+    "end": 6.67,
+    "id": "w19"
+  },
+  {
+    "text": "commands",
+    "start": 6.67,
+    "end": 7.21,
+    "id": "w20"
+  },
+  {
+    "text": "it",
+    "start": 7.21,
+    "end": 7.36,
+    "id": "w21"
+  },
+  {
+    "text": "will",
+    "start": 7.36,
+    "end": 7.51,
+    "id": "w22"
+  },
+  {
+    "text": "run",
+    "start": 7.51,
+    "end": 8.03,
+    "id": "w23"
+  },
+  {
+    "text": "in",
+    "start": 8.09,
+    "end": 8.18,
+    "id": "w24"
+  },
+  {
+    "text": "the",
+    "start": 8.18,
+    "end": 8.34,
+    "id": "w25"
+  },
+  {
+    "text": "approver's",
+    "start": 8.34,
+    "end": 8.87,
+    "id": "w26"
+  },
+  {
+    "text": "name.",
+    "start": 8.87,
+    "end": 9.28,
+    "id": "w27"
+  }
+]

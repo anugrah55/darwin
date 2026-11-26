@@ -1,0 +1,62 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; overflow: hidden; background: #101628; font-family: Inter, sans-serif; color: #f4f3ef; }
+    .shot { position: absolute; inset: 0; overflow: hidden; background: #101628; }
+    .inner { position: absolute; inset: 0; }
+    .cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .cam img { display: block; }
+    .hl { position: absolute; border-radius: 16px; }
+    .tag { position: absolute; padding: 10px 26px; border-radius: 12px; font-weight: 700; white-space: nowrap; }
+    .src { position: absolute; left: 60px; top: 34px; height: 54px; padding: 0 24px; border-radius: 27px; background: rgba(9, 12, 24, 0.9); display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; color: #e9e7e1; z-index: 5; }
+    .src i { width: 14px; height: 14px; border-radius: 50%; background: #8f7bff; }
+  </style>
+  <div id="root" data-composition-id="s07" data-width="1920" data-height="1080">
+    <div id="s07-a" class="shot clip" data-start="0" data-duration="20.8" data-track-index="1">
+      <div id="s07-a-in" class="inner">
+        <div id="s07-a-cam" class="cam" data-layout-allow-overflow>
+          <img src="assets/img/fs-exp1.png" width="2880" height="3000" alt="Flagsmith experiment page: shopbot_brain gen1 vs gen2, completed" />
+          <div id="s07-hl-users" class="hl" style="left:648px;top:1374px;width:530px;height:222px;border:7px solid #8f7bff;background:rgba(143,123,255,0.08)"></div>
+          <div id="s07-tag-users" class="tag" style="left:650px;top:1630px;font-size:50px;background:#8f7bff;color:#120c2c">≈160 simulated customers, split 50/50 by Flagsmith</div>
+          <div id="s07-hl-banner" class="hl" style="left:646px;top:644px;width:2186px;height:224px;border:7px solid #7fd49b"></div>
+          <div id="s07-hl-g2" class="hl" style="left:1300px;top:2540px;width:240px;height:124px;border:7px solid #7fd49b;background:rgba(127,212,155,0.08)"></div>
+          <div id="s07-hl-c" class="hl" style="left:1300px;top:2404px;width:240px;height:124px;border:7px solid #6aa7ff"></div>
+          <div id="s07-hl-win" class="hl" style="left:2430px;top:2540px;width:400px;height:124px;border:7px solid #7fd49b"></div>
+          <div id="s07-tag-win" class="tag" style="left:1900px;top:2700px;font-size:46px;background:#7fd49b;color:#0f1a12">99.8% unrounded, from Flagsmith’s API</div>
+          <div id="s07-hl-roll" class="hl" style="left:2114px;top:886px;width:718px;height:194px;border:7px solid #7fd49b;background:rgba(127,212,155,0.08)"></div>
+        </div>
+        <div class="src"><i></i>Flagsmith dashboard · experiment #1 results, gen1 vs gen2</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    const FR = { x: 60, y: 104, w: 1800, h: 800 };
+    const last = {};
+    function view(r, fr) { fr = fr || FR; const s = Math.min(fr.w / r[2], fr.h / r[3]); return { x: fr.x + (fr.w - r[2] * s) / 2 - r[0] * s, y: fr.y + (fr.h - r[3] * s) / 2 - r[1] * s, scale: s }; }
+    function camSet(sel, r, t, fr) { last[sel] = view(r, fr); tl.set(sel, last[sel], t); }
+    function camTo(sel, r, t, d, ease, fr) { const v = view(r, fr); tl.fromTo(sel, { ...last[sel] }, { ...v, duration: d, ease: ease || "power2.inOut", immediateRender: false }, t); last[sel] = v; }
+    function hl(sel, t) { tl.fromTo(sel, { opacity: 0, clipPath: "inset(0% 100% 0% 0% round 16px)" }, { opacity: 1, clipPath: "inset(0% 0% 0% 0% round 16px)", duration: 0.45, ease: "power3.out" }, t); }
+    function off(sels, t) { tl.fromTo(sels, { opacity: 1 }, { opacity: 0, duration: 0.25, ease: "power2.in", immediateRender: false }, t); }
+    function pop(sel, t) { tl.fromTo(sel, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power3.out" }, t); }
+
+    tl.fromTo("#s07-a-in", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power2.out" }, 0);
+    camSet("#s07-a-cam", [620, 230, 2240, 1000], 0);              // title, hypothesis, verdict
+    camTo("#s07-a-cam", [630, 1250, 2220, 620], 2.1, 0.9);       // the results tiles
+    hl("#s07-hl-users", 3.6);
+    pop("#s07-tag-users", 3.9);
+    off(["#s07-hl-users", "#s07-tag-users"], 6.0);
+    camTo("#s07-a-cam", [630, 600, 2220, 560], 6.2, 0.9);        // Flagsmith's verdict
+    hl("#s07-hl-banner", 6.9);
+    off(["#s07-hl-banner"], 8.0);
+    camTo("#s07-a-cam", [630, 2250, 2220, 560], 8.2, 0.9);       // the variant table
+    hl("#s07-hl-g2", 9.2);
+    hl("#s07-hl-c", 11.0);
+    hl("#s07-hl-win", 12.6);
+    pop("#s07-tag-win", 12.9);
+    off(["#s07-hl-g2", "#s07-hl-c", "#s07-hl-win", "#s07-tag-win"], 15.4);
+    camTo("#s07-a-cam", [630, 600, 2220, 520], 15.6, 1.0);      // the rollout
+    hl("#s07-hl-roll", 17.3);
+
+    window.__timelines["s07"] = tl;
+  </script>
+</template>

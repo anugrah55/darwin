@@ -1,0 +1,194 @@
+[
+  {
+    "text": "This",
+    "start": 0.03,
+    "end": 0.12,
+    "id": "w0"
+  },
+  {
+    "text": "support",
+    "start": 0.21,
+    "end": 0.54,
+    "id": "w1"
+  },
+  {
+    "text": "board",
+    "start": 0.54,
+    "end": 0.74,
+    "id": "w2"
+  },
+  {
+    "text": "has",
+    "start": 0.8,
+    "end": 0.91,
+    "id": "w3"
+  },
+  {
+    "text": "been",
+    "start": 0.98,
+    "end": 1.15,
+    "id": "w4"
+  },
+  {
+    "text": "rewritten",
+    "start": 1.15,
+    "end": 1.63,
+    "id": "w5"
+  },
+  {
+    "text": "five",
+    "start": 1.74,
+    "end": 1.9,
+    "id": "w6"
+  },
+  {
+    "text": "times,",
+    "start": 1.99,
+    "end": 2.73,
+    "id": "w7"
+  },
+  {
+    "text": "mostly",
+    "start": 2.73,
+    "end": 3.04,
+    "id": "w8"
+  },
+  {
+    "text": "by",
+    "start": 3.04,
+    "end": 3.25,
+    "id": "w9"
+  },
+  {
+    "text": "an",
+    "start": 3.25,
+    "end": 3.45,
+    "id": "w10"
+  },
+  {
+    "text": "AI",
+    "start": 3.46,
+    "end": 3.67,
+    "id": "w11"
+  },
+  {
+    "text": "coach.",
+    "start": 3.67,
+    "end": 4.4,
+    "id": "w12"
+  },
+  {
+    "text": "Every",
+    "start": 4.43,
+    "end": 4.67,
+    "id": "w13"
+  },
+  {
+    "text": "new",
+    "start": 4.74,
+    "end": 4.87,
+    "id": "w14"
+  },
+  {
+    "text": "version",
+    "start": 4.87,
+    "end": 5.28,
+    "id": "w15"
+  },
+  {
+    "text": "had",
+    "start": 5.28,
+    "end": 5.46,
+    "id": "w16"
+  },
+  {
+    "text": "to",
+    "start": 5.46,
+    "end": 5.58,
+    "id": "w17"
+  },
+  {
+    "text": "beat",
+    "start": 5.58,
+    "end": 5.82,
+    "id": "w18"
+  },
+  {
+    "text": "the",
+    "start": 5.82,
+    "end": 6,
+    "id": "w19"
+  },
+  {
+    "text": "champion",
+    "start": 6,
+    "end": 6.5,
+    "id": "w20"
+  },
+  {
+    "text": "in",
+    "start": 6.5,
+    "end": 6.64,
+    "id": "w21"
+  },
+  {
+    "text": "a",
+    "start": 6.64,
+    "end": 6.68,
+    "id": "w22"
+  },
+  {
+    "text": "live",
+    "start": 6.68,
+    "end": 6.76,
+    "id": "w23"
+  },
+  {
+    "text": "flagsmith",
+    "start": 7.06,
+    "end": 7.56,
+    "id": "w24"
+  },
+  {
+    "text": "experiment,",
+    "start": 7.56,
+    "end": 8.56,
+    "id": "w25"
+  },
+  {
+    "text": "and",
+    "start": 8.56,
+    "end": 8.57,
+    "id": "w26"
+  },
+  {
+    "text": "a",
+    "start": 8.57,
+    "end": 8.81,
+    "id": "w27"
+  },
+  {
+    "text": "person",
+    "start": 8.81,
+    "end": 9.04,
+    "id": "w28"
+  },
+  {
+    "text": "approves",
+    "start": 9.07,
+    "end": 9.51,
+    "id": "w29"
+  },
+  {
+    "text": "every",
+    "start": 9.51,
+    "end": 9.78,
+    "id": "w30"
+  },
+  {
+    "text": "change.",
+    "start": 9.84,
+    "end": 10.36,
+    "id": "w31"
+  }
+]
