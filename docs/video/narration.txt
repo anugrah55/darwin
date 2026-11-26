@@ -1,0 +1,32 @@
+Darwin: demo video narration
+Voice: Sarvam AI bulbul:v4-flash, speaker simran_en_narration (en-IN), pace 1.0
+
+[0:01.2] Hook
+This support bot has been rewritten five times, mostly by an AI coach. Every new version had to beat the champion in a live Flagsmith experiment, and a person approves every change.
+
+[0:13.4] The problem
+Today, teams change the prompts behind their AI features on gut feel. Tweak the prompt, read a few answers, deploy, and hope. Nobody measures what customers actually experience.
+
+[0:25.4] The idea: one flag holds the agent's brain
+Darwin puts the agent's whole brain, its prompt, model and effort, into one Flagsmith multivariate flag. The champion is the control, and every challenger is a variant. So changing the agent is a flag change, with no redeploy.
+
+[0:41.3] Generation 1 fails
+Our first version handed a quarter of its chats to humans. Here, it fixes a late order, then offers a specialist anyway. The customer says yes, and a human gets a ticket that was already solved.
+
+[0:53.9] The Coach writes a challenger
+Darwin's Coach, built on Claude Opus, read twenty-eight failed chats. It found the patterns, with counts and real quotes, and wrote a challenger with a hypothesis that Flagsmith can test.
+
+[1:06.2] A person approves
+Nothing goes live until a person approves. Every card shows the evidence, the prompt diff, and the exact Flagsmith CLI commands it will run, in the approver's name.
+
+[1:18.0] Flagsmith decides
+Flagsmith splits the traffic fifty-fifty, across a hundred and sixty simulated customers, and its Bayesian engine scores both versions. The challenger resolved ninety-one percent of chats, against sixty-nine, with a ninety-nine point eight percent chance to win. One more approval, and Flagsmith rolls it out to everyone. No deploy.
+
+[1:38.8] More generations
+Then the Coach cut cost by eight percent. A teammate's two-line prompt cut another twenty-seven, but it had dropped the escalation rules. So the Coach put back only what mattered: one hundred percent resolved.
+
+[1:51.9] The guardrail (live run)
+In a live run, a teammate tried skipping policy lookups to save money, and Anugrah approved the test. Flagsmith, scoring cost alone, gave it a ninety-four percent chance to win. But resolution collapsed, from ninety-nine percent to forty-five. Darwin's guardrail recommended a kill, Anugrah approved it, and every customer stayed on the champion.
+
+[2:14.4] Close
+Six generations, five Flagsmith experiments, and about a dollar of Claude spend. Darwin. Your AI agent evolves. Flagsmith decides who survives. You approve every change.
